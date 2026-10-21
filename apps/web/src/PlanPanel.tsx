@@ -1,18 +1,19 @@
-import type { Position, Project } from "@strazh-sim/core";
+import { backgroundFor, type Position, type Project } from "@strazh-sim/core";
 import { useRef, useState } from "react";
 
 type Props = {
   project: Project;
+  floorId: string;
   change: (recipe: (draft: Project) => void) => void;
   onError: (message: string) => void;
   calibrating: boolean;
   marks: Position[];
   onCalibrate: (active: boolean) => void;
 };
-export function PlanPanel({ project, change, onError, calibrating, marks, onCalibrate }: Props) {
+export function PlanPanel({ project, floorId, change, onError, calibrating, marks, onCalibrate }: Props) {
   const file = useRef<HTMLInputElement>(null);
   const [distance, setDistance] = useState(10);
-  const background = project.plan.background;
+  const background = backgroundFor(project, floorId);
   const load = async (picked: File | undefined) => {
     if (!picked) return;
     try {
@@ -31,7 +32,8 @@ export function PlanPanel({ project, change, onError, calibrating, marks, onCali
         throw new Error("Максимальная сторона изображения — 15000 пикселей");
       const width = Math.min(image.width, 1000);
       change((draft) => {
-        draft.plan.background = {
+        draft.plan.backgrounds[floorId] = {
+          floorId,
           dataUrl,
           x: 0,
           y: 0,
@@ -49,7 +51,8 @@ export function PlanPanel({ project, change, onError, calibrating, marks, onCali
   const number = (key: "x" | "y" | "rotation" | "opacity", value: number) => {
     if (Number.isFinite(value))
       change((draft) => {
-        if (draft.plan.background) draft.plan.background[key] = value;
+        const bg = backgroundFor(draft, floorId);
+        if (bg) bg[key] = value;
       });
   };
   return (
@@ -77,7 +80,8 @@ export function PlanPanel({ project, change, onError, calibrating, marks, onCali
               checked={background.locked}
               onChange={(event) =>
                 change((draft) => {
-                  if (draft.plan.background) draft.plan.background.locked = event.target.checked;
+                  const bg = backgroundFor(draft, floorId);
+                  if (bg) bg.locked = event.target.checked;
                 })
               }
             />{" "}
@@ -104,9 +108,10 @@ export function PlanPanel({ project, change, onError, calibrating, marks, onCali
                 const width = Number(event.target.value);
                 if (width > 0 && width <= 15000)
                   change((draft) => {
-                    if (draft.plan.background) {
-                      draft.plan.background.height *= width / draft.plan.background.width;
-                      draft.plan.background.width = width;
+                    const bg = backgroundFor(draft, floorId);
+                    if (bg) {
+                      bg.height *= width / bg.width;
+                      bg.width = width;
                     }
                   });
               }}
@@ -136,7 +141,8 @@ export function PlanPanel({ project, change, onError, calibrating, marks, onCali
             className="wide"
             onClick={() =>
               change((draft) => {
-                delete draft.plan.background;
+                delete draft.plan.backgrounds[floorId];
+                if (draft.plan.background?.floorId === floorId) delete draft.plan.background;
               })
             }
           >

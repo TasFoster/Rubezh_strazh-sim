@@ -9,6 +9,7 @@ export {
 } from "./device";
 export { classifyInput, type InputState } from "./inputs";
 export { type LinkQuality, osdpLinkQuality } from "./osdp";
+export { backgroundFor } from "./plan";
 export {
   type AccessPoint,
   AccessPointSchema,

@@ -783,3 +783,13 @@ h3 {
   line-height: 1.8;
   margin-top: 20px;
 }
+.tool-select {
+  width: 115px;
+  font-size: 11px;
+  padding: 7px;
+}
+.floor-select {
+  width: 95px;
+  font-size: 11px;
+  padding: 7px;
+}

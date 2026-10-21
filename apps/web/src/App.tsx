@@ -1,9 +1,11 @@
 import { createDoorProject, devices, getDevice } from "@strazh-sim/content";
 import {
+  backgroundFor,
   ControllerConfigSchema,
   createProject,
   type Endpoint,
   InstanceSchema,
+  lockIsOpen,
   type Position,
   parseProject,
   removeDevice,
@@ -12,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { CablePanel } from "./CablePanel";
 import { ControllerWindow } from "./ControllerWindow";
 import { DeviceSettings } from "./DeviceSettings";
+import { PlanObjectPanel, type PlanSelection } from "./PlanObjectPanel";
 import { PlanPanel } from "./PlanPanel";
 import { SimulationPanel } from "./SimulationPanel";
 import { downloadProject } from "./storage";
@@ -26,6 +29,13 @@ export function App() {
   const [showSimulation, setShowSimulation] = useState(false);
   const [openControllers, setOpenControllers] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>();
+  const [activeFloor, setActiveFloor] = useState("floor_1");
+  const floorId = project.plan.floors.some((floor) => floor.id === activeFloor)
+    ? activeFloor
+    : (project.plan.floors[0]?.id ?? "floor_1");
+  const [planTool, setPlanTool] = useState("select");
+  const [selectedPlan, setSelectedPlan] = useState<PlanSelection>();
+  const [wallStart, setWallStart] = useState<Position>();
   const [selectedCable, setSelectedCable] = useState<string>();
   const [detail, setDetail] = useState(false);
   const [pending, setPending] = useState<Endpoint>();
@@ -48,6 +58,7 @@ export function App() {
           modelId,
           name: spec.name,
           position,
+          floorId,
           settings: { currentA: spec.electrical?.power?.currentA || 0.1 },
           ...(spec.kind === "controller" ? { controller: ControllerConfigSchema.parse({}) } : {}),
         }),
@@ -74,7 +85,7 @@ export function App() {
         draft.cables.push({
           id: cableId,
           name: `Кабель ${draft.cables.length + 1}`,
-          floorId: "floor_1",
+          floorId,
           route: route.map((point) => ({ ...point, id: crypto.randomUUID() })),
           lengthM: Math.round(length * draft.plan.metersPerUnit * 10) / 10,
           sectionMm2: 0.5,
@@ -86,6 +97,82 @@ export function App() {
     }
     setPending(undefined);
     setRoute([]);
+  };
+  const removePlan = () => {
+    if (!selectedPlan) return;
+    change((draft) => {
+      if (selectedPlan.kind === "wall") {
+        draft.plan.walls = draft.plan.walls.filter((item) => item.id !== selectedPlan.id);
+        for (const door of draft.plan.doors) if (door.wallId === selectedPlan.id) delete door.wallId;
+      }
+      if (selectedPlan.kind === "door")
+        draft.plan.doors = draft.plan.doors.filter((item) => item.id !== selectedPlan.id);
+      if (selectedPlan.kind === "room")
+        draft.plan.rooms = draft.plan.rooms.filter((item) => item.id !== selectedPlan.id);
+    });
+    setSelectedPlan(undefined);
+  };
+  const planClick = (point: Position) => {
+    if (pending) {
+      setRoute((current) => [...current, point]);
+      return;
+    }
+    if (calibrating) {
+      setMarks((current) => (current.length < 2 ? [...current, point] : [point]));
+      return;
+    }
+    if (planTool === "wall") {
+      if (wallStart && Math.hypot(point.x - wallStart.x, point.y - wallStart.y) > 1)
+        change((draft) => draft.plan.walls.push({ id: crypto.randomUUID(), floorId, from: wallStart, to: point }));
+      setWallStart(point);
+    }
+    if (planTool === "room") {
+      const id = crypto.randomUUID();
+      change((draft) =>
+        draft.plan.rooms.push({
+          id,
+          floorId,
+          name: `Помещение ${draft.plan.rooms.length + 1}`,
+          position: point,
+          width: 300,
+          height: 200,
+        }),
+      );
+      setSelectedPlan({ kind: "room", id });
+    }
+    if (planTool === "door") {
+      let position = point,
+        rotation = 0,
+        wallId: string | undefined,
+        nearest = 25;
+      for (const wall of project.plan.walls.filter((wall) => wall.floorId === floorId)) {
+        const dx = wall.to.x - wall.from.x,
+          dy = wall.to.y - wall.from.y,
+          squared = dx * dx + dy * dy;
+        if (!squared) continue;
+        const t = Math.max(0, Math.min(1, ((point.x - wall.from.x) * dx + (point.y - wall.from.y) * dy) / squared));
+        const projection = { x: wall.from.x + t * dx, y: wall.from.y + t * dy },
+          distance = Math.hypot(projection.x - point.x, projection.y - point.y);
+        if (distance < nearest) {
+          nearest = distance;
+          position = projection;
+          rotation = (Math.atan2(dy, dx) * 180) / Math.PI;
+          wallId = wall.id;
+        }
+      }
+      const id = crypto.randomUUID();
+      change((draft) =>
+        draft.plan.doors.push({
+          id,
+          floorId,
+          position,
+          rotation,
+          width: 0.9 / draft.plan.metersPerUnit,
+          ...(wallId ? { wallId } : {}),
+        }),
+      );
+      setSelectedPlan({ kind: "door", id });
+    }
   };
   const remove = () => {
     if (selected) {
@@ -128,6 +215,9 @@ export function App() {
         setPending(undefined);
         setRoute([]);
         setSelectedCable(undefined);
+        setSelectedPlan(undefined);
+        setPlanTool("select");
+        setWallStart(undefined);
       }
     };
     window.addEventListener("keydown", listener);
@@ -194,7 +284,14 @@ export function App() {
         <label>
           <input type="checkbox" checked={grid} onChange={(event) => setGrid(event.target.checked)} /> Сетка
         </label>
-        <button type="button" onClick={() => setSelected(undefined)}>
+        <button
+          type="button"
+          onClick={() => {
+            setSelected(undefined);
+            setSelectedPlan(undefined);
+            setSelectedCable(undefined);
+          }}
+        >
           План объекта
         </button>
         <button
@@ -234,6 +331,55 @@ export function App() {
         </button>
         <button type="button" onClick={() => setShowSimulation(!showSimulation)}>
           Приборы
+        </button>
+        <select
+          className="tool-select"
+          aria-label="Инструмент плана"
+          value={planTool}
+          onChange={(event) => {
+            setPlanTool(event.target.value);
+            setDetail(false);
+            setPending(undefined);
+            setWallStart(undefined);
+            setSelected(undefined);
+            setSelectedCable(undefined);
+          }}
+        >
+          <option value="select">Выделение</option>
+          <option value="wall">Стена</option>
+          <option value="room">Помещение</option>
+          <option value="door">Дверь</option>
+        </select>
+        <select
+          className="floor-select"
+          aria-label="Этаж"
+          value={floorId}
+          onChange={(event) => {
+            setActiveFloor(event.target.value);
+            setSelected(undefined);
+            setSelectedCable(undefined);
+            setSelectedPlan(undefined);
+            setWallStart(undefined);
+          }}
+        >
+          {project.plan.floors.map((floor) => (
+            <option key={floor.id} value={floor.id}>
+              {floor.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          aria-label="Добавить этаж"
+          onClick={() => {
+            const id = crypto.randomUUID();
+            change((draft) => draft.plan.floors.push({ id, name: `Этаж ${draft.plan.floors.length + 1}` }));
+            setActiveFloor(id);
+            setSelected(undefined);
+            setSelectedPlan(undefined);
+          }}
+        >
+          + Этаж
         </button>
         <span className="toolbar-spacer" />
         <span>{project.devices.length} устройств</span>
@@ -331,9 +477,55 @@ export function App() {
           onSelect={(id) => {
             setSelected(id);
             setSelectedCable(undefined);
+            setSelectedPlan(undefined);
           }}
           onAdd={addDevice}
           grid={grid}
+          floorId={floorId}
+          planTool={planTool}
+          wallStart={wallStart}
+          selectedPlan={selectedPlan}
+          doorStates={Object.fromEntries(
+            project.plan.doors.map((door) => {
+              const controller = project.devices.find((item) => item.id === door.controllerId),
+                point = controller?.controller?.points.find((item) => item.id === door.pointId);
+              return [
+                door.id,
+                {
+                  open:
+                    simulation.active &&
+                    simulation.state.inputStates[`${door.controllerId}/${door.pointId}`] === "open",
+                  unlocked: Boolean(
+                    point && simulation.active && lockIsOpen(project, simulation.circuit, point.lockId),
+                  ),
+                },
+              ];
+            }),
+          )}
+          onPlanSelect={(selection) => {
+            setSelectedPlan(selection);
+            setSelected(undefined);
+            setSelectedCable(undefined);
+          }}
+          onPlanMove={(selection, point) =>
+            change((draft) => {
+              const wall = draft.plan.walls.find((item) => item.id === selection.id);
+              if (wall) {
+                const dx = point.x - wall.from.x,
+                  dy = point.y - wall.from.y;
+                wall.from = point;
+                wall.to = { x: wall.to.x + dx, y: wall.to.y + dy };
+                for (const door of draft.plan.doors.filter((door) => door.wallId === wall.id)) {
+                  door.position.x += dx;
+                  door.position.y += dy;
+                }
+              }
+              const item =
+                draft.plan.doors.find((item) => item.id === selection.id) ??
+                draft.plan.rooms.find((item) => item.id === selection.id);
+              if (item) item.position = point;
+            })
+          }
           powered={simulation.active ? simulation.circuit.powered : undefined}
           detail={detail}
           pending={pending}
@@ -358,13 +550,11 @@ export function App() {
           }
           calibrating={calibrating}
           marks={marks}
-          onPlanClick={(point) => {
-            if (pending) setRoute((current) => [...current, point]);
-            else setMarks((current) => (current.length < 2 ? [...current, point] : [point]));
-          }}
+          onPlanClick={planClick}
           onBackgroundMove={(point) =>
             change((draft) => {
-              if (draft.plan.background) Object.assign(draft.plan.background, point);
+              const bg = backgroundFor(draft, floorId);
+              if (bg) Object.assign(bg, point);
             })
           }
           onMove={(id, position) =>
@@ -376,7 +566,9 @@ export function App() {
         />
         <aside className="inspector">
           <div className="section-heading">Свойства</div>
-          {cable ? (
+          {selectedPlan ? (
+            <PlanObjectPanel project={project} selection={selectedPlan} change={change} onDelete={removePlan} />
+          ) : cable ? (
             <CablePanel
               cable={cable}
               project={project}
@@ -485,6 +677,7 @@ export function App() {
           ) : (
             <PlanPanel
               project={project}
+              floorId={floorId}
               change={change}
               onError={editor.setError}
               calibrating={calibrating}
@@ -520,7 +713,7 @@ export function App() {
         ) : null;
       })}
       <footer className="statusbar">
-        <span>Объект / Этаж 1</span>
+        <span>Объект / {project.plan.floors.find((floor) => floor.id === floorId)?.name}</span>
         <span>Локальный проект · Ctrl+Z — отмена · Ctrl+Shift+Z — повтор</span>
       </footer>
     </div>

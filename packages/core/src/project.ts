@@ -109,6 +109,7 @@ export const CableSchema = z.object({
 });
 export type Cable = z.infer<typeof CableSchema>;
 const BackgroundSchema = z.object({
+  floorId: id.default("floor_1"),
   dataUrl: z
     .string()
     .max(12000000)
@@ -130,6 +131,7 @@ export const ProjectSchema = z
       metersPerUnit: finite.positive().max(100).default(0.01),
       floors: z.array(z.object({ id, name: z.string().min(1) })).min(1),
       background: BackgroundSchema.optional(),
+      backgrounds: z.record(z.string(), BackgroundSchema).default({}),
       walls: z.array(z.object({ id, floorId: id, from: PositionSchema, to: PositionSchema })).default([]),
       doors: z
         .array(
@@ -140,10 +142,23 @@ export const ProjectSchema = z
             width: finite.positive().default(90),
             rotation: finite.default(0),
             pointId: id.optional(),
+            controllerId: id.optional(),
+            wallId: id.optional(),
           }),
         )
         .default([]),
-      rooms: z.array(z.object({ id, floorId: id, position: PositionSchema, name: z.string().min(1) })).default([]),
+      rooms: z
+        .array(
+          z.object({
+            id,
+            floorId: id,
+            position: PositionSchema,
+            name: z.string().min(1),
+            width: finite.positive().default(300),
+            height: finite.positive().default(200),
+          }),
+        )
+        .default([]),
     }),
     devices: z.array(InstanceSchema),
     cables: z.array(CableSchema),
@@ -260,6 +275,13 @@ export function removeDevice(project: Project, id: string): Project {
       for (const card of device.controller.cards)
         card.pointIds = card.pointIds.filter((pointId) => pointIds.has(pointId));
     }
+  for (const door of next.plan.doors) {
+    const controller = next.devices.find((item) => item.id === door.controllerId);
+    if (door.pointId && !controller?.controller?.points.some((point) => point.id === door.pointId)) {
+      delete door.pointId;
+      delete door.controllerId;
+    }
+  }
   return next;
 }
 
