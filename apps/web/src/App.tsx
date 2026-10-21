@@ -10,6 +10,7 @@ import {
 } from "@strazh-sim/core";
 import { useEffect, useRef, useState } from "react";
 import { CablePanel } from "./CablePanel";
+import { ControllerWindow } from "./ControllerWindow";
 import { DeviceSettings } from "./DeviceSettings";
 import { PlanPanel } from "./PlanPanel";
 import { SimulationPanel } from "./SimulationPanel";
@@ -23,6 +24,7 @@ export function App() {
   const { project, change, replace, undo, redo } = editor;
   const simulation = useSimulation(project);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [openControllers, setOpenControllers] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>();
   const [selectedCable, setSelectedCable] = useState<string>();
   const [detail, setDetail] = useState(false);
@@ -450,6 +452,17 @@ export function App() {
                   Перезапустить модуль
                 </button>
               )}
+              {instance.controller && (
+                <button
+                  type="button"
+                  className="primary wide"
+                  onClick={() =>
+                    setOpenControllers((current) => [...current.filter((id) => id !== instance.id), instance.id])
+                  }
+                >
+                  Открыть веб-интерфейс
+                </button>
+              )}
               <DeviceSettings
                 instance={instance}
                 model={model}
@@ -487,6 +500,25 @@ export function App() {
       {showSimulation && (
         <SimulationPanel project={project} simulation={simulation} onClose={() => setShowSimulation(false)} />
       )}
+      {openControllers.map((id, index) => {
+        const controller = project.devices.find((device) => device.id === id);
+        return controller?.controller ? (
+          <ControllerWindow
+            key={id}
+            project={project}
+            controller={controller}
+            simulation={simulation}
+            change={change}
+            order={index}
+            onClose={() => setOpenControllers((current) => current.filter((item) => item !== id))}
+            onRaise={() =>
+              setOpenControllers((current) =>
+                current.at(-1) === id ? current : [...current.filter((item) => item !== id), id],
+              )
+            }
+          />
+        ) : null;
+      })}
       <footer className="statusbar">
         <span>Объект / Этаж 1</span>
         <span>Локальный проект · Ctrl+Z — отмена · Ctrl+Shift+Z — повтор</span>

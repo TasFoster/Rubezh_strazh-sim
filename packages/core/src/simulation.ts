@@ -8,7 +8,7 @@ export type Link = {
   moduleId: string;
   line: string;
   address: number;
-  status: "online" | "conflict" | "invalid_address" | "master_conflict";
+  status: "online" | "conflict" | "invalid_address" | "master_conflict" | "baud_mismatch";
 };
 export type SimEvent = {
   sequence: number;
@@ -86,9 +86,11 @@ export function discoverModules(
             line: line.id,
             address,
             status:
-              model?.dipAddress && address >= model.dipAddress.min && address <= model.dipAddress.max
-                ? "online"
-                : "invalid_address",
+              controller.controller?.lines.find((item) => item.id === line.id)?.baudRate !== module.settings.baudRate
+                ? "baud_mismatch"
+                : model?.dipAddress && address >= model.dipAddress.min && address <= model.dipAddress.max
+                  ? "online"
+                  : "invalid_address",
           });
       }
     }

@@ -27,10 +27,27 @@ export const AccessPointSchema = z.object({
 });
 export type AccessPoint = z.infer<typeof AccessPointSchema>;
 export const ControllerConfigSchema = z.object({
+  networkMode: z.enum(["dynamic", "static"]).default("dynamic"),
+  lines: z
+    .array(
+      z.object({
+        id,
+        baudRate: z.number().int().positive(),
+        pollMs: z.number().int().min(1).max(10000),
+        timeoutMs: z.number().int().min(1).max(10000),
+      }),
+    )
+    .default([
+      { id: "rs485_1", baudRate: 115200, pollMs: 100, timeoutMs: 100 },
+      { id: "rs485_2", baudRate: 115200, pollMs: 100, timeoutMs: 100 },
+    ]),
   ip: ipv4.default("192.168.0.100"),
   mask: ipv4.default("255.255.255.0"),
   gateway: ipv4.default("192.168.0.1"),
-  time: z.string().default("2026-01-01T12:00"),
+  time: z
+    .string()
+    .refine((value) => Number.isFinite(Date.parse(value)), "Некорректная дата")
+    .default("2026-01-01T12:00"),
   modules: z.array(id).default([]),
   points: z.array(AccessPointSchema).default([]),
   cards: z
@@ -56,6 +73,7 @@ export const InstanceSchema = z.object({
     .object({
       resistanceOhm: finite.positive().max(10000000).default(4700),
       supervision: z.record(z.string(), z.boolean()).default({}),
+      baudRate: z.number().int().positive().default(115200),
       address: z.number().int().min(0).max(127).default(1),
       voltage: z.number().positive().max(60).default(12),
       maxCurrentA: z.number().positive().max(30).default(3),
@@ -183,6 +201,7 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
     if (device.controller && model?.kind !== "controller") errors.push(`Настройки контроллера у ${device.id}`);
     if (device.controller) {
       const config = device.controller;
+      unique(config.lines, "линии");
       unique(config.points, "точки доступа");
       unique(config.cards, "карты");
       if (new Set(config.modules).size !== config.modules.length) errors.push("Повторный модуль контроллера");
