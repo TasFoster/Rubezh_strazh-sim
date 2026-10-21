@@ -487,3 +487,106 @@ h3 {
   color: #ba651b;
   font-size: 11px;
 }
+.primary {
+  background: #25777b;
+  color: white;
+  border-color: #25777b;
+}
+.primary:hover {
+  background: #1e686c;
+}
+.power-on {
+  color: #2a8a67;
+  font-size: 11px;
+}
+.simulation-panel {
+  height: 220px;
+  flex-shrink: 0;
+  border-top: 1px solid #bdcdd8;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.simulation-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e0e8ee;
+}
+.simulation-content {
+  overflow: auto;
+  padding: 12px 18px;
+  flex: 1;
+}
+.point-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+.point-actions > div {
+  min-width: 190px;
+}
+.point-actions small {
+  display: block;
+  font-size: 10px;
+  color: #7b8d9a;
+  margin-top: 4px;
+}
+.card-field {
+  max-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+.meter {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+.meter label {
+  width: 24%;
+  font-size: 11px;
+}
+.simulation-panel .meter label select {
+  margin-top: 8px;
+  font-size: 11px;
+}
+.meter output {
+  background: #173b36;
+  color: #a5f2cf;
+  padding: 18px;
+  font-family: monospace;
+  min-width: 200px;
+  max-width: 30%;
+  border-radius: 7px;
+}
+.event-list > div {
+  display: grid;
+  grid-template-columns: 70px 210px 1fr;
+  padding: 6px;
+  border-bottom: 1px solid #eef2f5;
+  font-size: 11px;
+}
+.event-list time {
+  color: #80929e;
+}
+.diagnostic-list p {
+  font-size: 12px;
+  margin: 6px 0;
+}
+.toolbar {
+  height: auto;
+  min-height: 48px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.palette-item {
+  flex-shrink: 0;
+}
+.palette-footer {
+  flex-shrink: 0;
+}

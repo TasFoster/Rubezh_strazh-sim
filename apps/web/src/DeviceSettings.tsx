@@ -115,6 +115,23 @@ export function DeviceSettings({ instance, model, onChange }: Props) {
           />
         </label>
       )}
+      {model.electrical && model.electrical.inputs.length > 0 && (
+        <details>
+          <summary>Контроль линий входов</summary>
+          {model.electrical.inputs.map((input) => (
+            <label key={input.id}>
+              <input
+                type="checkbox"
+                checked={settings.supervision[input.id] ?? false}
+                onChange={(event) =>
+                  onChange({ supervision: { ...settings.supervision, [input.id]: event.target.checked } })
+                }
+              />{" "}
+              {input.id}
+            </label>
+          ))}
+        </details>
+      )}
       {model.jumpers.length > 0 && (
         <>
           <h3>Перемычки</h3>

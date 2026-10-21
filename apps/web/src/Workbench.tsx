@@ -12,6 +12,7 @@ type Props = {
   onAdd: (modelId: string, point: Position) => void;
   grid: boolean;
   detail: boolean;
+  powered: Readonly<Record<string, boolean>> | undefined;
   pending: Endpoint | undefined;
   route: Position[];
   selectedCable: string | undefined;
@@ -32,6 +33,7 @@ export function Workbench({
   onAdd,
   grid,
   detail,
+  powered,
   pending,
   route,
   selectedCable,
@@ -82,6 +84,33 @@ export function Workbench({
         <span>{Math.round(camera.zoom * 100)}%</span>
         <button type="button" onClick={() => zoomAt(0.8)} aria-label="Уменьшить">
           −
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!project.devices.length) return;
+            const minX = Math.min(...project.devices.map((device) => device.position.x)) - 30;
+            const minY = Math.min(...project.devices.map((device) => device.position.y)) - 60;
+            const maxX =
+              Math.max(
+                ...project.devices.map(
+                  (device) => device.position.x + cardSize(getDevice(device.modelId), detail).width,
+                ),
+              ) + 30;
+            const maxY =
+              Math.max(
+                ...project.devices.map(
+                  (device) => device.position.y + cardSize(getDevice(device.modelId), detail).height,
+                ),
+              ) + 30;
+            setCamera({
+              x: minX,
+              y: minY,
+              zoom: Math.max(0.2, Math.min(1.5, size.width / (maxX - minX), size.height / (maxY - minY))),
+            });
+          }}
+        >
+          Весь объект
         </button>
         <button type="button" onClick={() => setCamera({ x: 0, y: 0, zoom: 1 })}>
           К началу
@@ -322,7 +351,14 @@ export function Workbench({
                 stroke={selected === instance.id ? "#206f76" : "#bccad5"}
                 strokeWidth={selected === instance.id ? 3 : 1.5}
               />
-              <rect x="12" y="14" width="5" height="24" rx="2" fill="#206f76" />
+              <rect
+                x="12"
+                y="14"
+                width="5"
+                height="24"
+                rx="2"
+                fill={powered ? (powered[instance.id] ? "#46ad7e" : "#c4cfd7") : "#206f76"}
+              />
               <text x="26" y="28" fontSize="12" fontWeight="700">
                 {instance.name.length > (detail ? 32 : 20)
                   ? `${instance.name.slice(0, detail ? 30 : 18)}…`

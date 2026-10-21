@@ -28,3 +28,16 @@ export {
   removeDevice,
   serializeProject,
 } from "./project";
+export {
+  advanceSimulation,
+  createSimulation,
+  discoverModules,
+  type Link,
+  lockIsOpen,
+  pointInput,
+  pointKey,
+  pointReady,
+  type SimAction,
+  type SimEvent,
+  type Simulation,
+} from "./simulation";

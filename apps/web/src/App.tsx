@@ -1,4 +1,4 @@
-import { devices, getDevice } from "@strazh-sim/content";
+import { createDoorProject, devices, getDevice } from "@strazh-sim/content";
 import {
   ControllerConfigSchema,
   createProject,
@@ -12,13 +12,17 @@ import { useEffect, useRef, useState } from "react";
 import { CablePanel } from "./CablePanel";
 import { DeviceSettings } from "./DeviceSettings";
 import { PlanPanel } from "./PlanPanel";
+import { SimulationPanel } from "./SimulationPanel";
 import { downloadProject } from "./storage";
 import { useEditor } from "./useEditor";
+import { useSimulation } from "./useSimulation";
 import { Workbench } from "./Workbench";
 
 export function App() {
   const editor = useEditor();
   const { project, change, replace, undo, redo } = editor;
+  const simulation = useSimulation(project);
+  const [showSimulation, setShowSimulation] = useState(false);
   const [selected, setSelected] = useState<string>();
   const [selectedCable, setSelectedCable] = useState<string>();
   const [detail, setDetail] = useState(false);
@@ -131,7 +135,9 @@ export function App() {
     if (!picked) return;
     try {
       if (picked.size > 15000000) throw new Error("Файл слишком большой (максимум 15 МБ)");
-      replace(parseProject(JSON.parse(await picked.text()), devices));
+      const parsed = parseProject(JSON.parse(await picked.text()), devices);
+      simulation.stop();
+      replace(parsed);
       setSelected(undefined);
       editor.setError("");
     } catch (error) {
@@ -211,12 +217,32 @@ export function App() {
             Отменить провод
           </button>
         )}
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            simulation.toggle();
+            setShowSimulation(true);
+          }}
+        >
+          {simulation.status === "running" ? "Пауза" : simulation.status === "paused" ? "Продолжить" : "Запустить"}
+        </button>
+        <button type="button" disabled={!simulation.active} onClick={simulation.stop}>
+          Сброс
+        </button>
+        <button type="button" onClick={() => setShowSimulation(!showSimulation)}>
+          Приборы
+        </button>
         <span className="toolbar-spacer" />
         <span>{project.devices.length} устройств</span>
         <button
           type="button"
           onClick={() => {
             if (window.confirm("Создать пустой объект? Текущий проект останется в истории отмены.")) {
+              simulation.stop();
+              setPending(undefined);
+              setRoute([]);
+              setSelectedCable(undefined);
               replace(createProject());
               setSelected(undefined);
             }
@@ -269,6 +295,28 @@ export function App() {
                 <span>＋</span>
               </button>
             ))}
+          <button
+            type="button"
+            onClick={() => {
+              simulation.stop();
+              replace(createDoorProject());
+              setSelected(undefined);
+              setSelectedCable(undefined);
+            }}
+          >
+            Стенд одной двери
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              simulation.stop();
+              replace(createDoorProject(true));
+              setSelected(undefined);
+              setSelectedCable(undefined);
+            }}
+          >
+            Готовый пример
+          </button>
           <div className="palette-footer">
             Свободный монтаж
             <br />
@@ -284,6 +332,7 @@ export function App() {
           }}
           onAdd={addDevice}
           grid={grid}
+          powered={simulation.active ? simulation.circuit.powered : undefined}
           detail={detail}
           pending={pending}
           route={route}
@@ -386,6 +435,21 @@ export function App() {
                   />
                 </label>
               )}
+              {simulation.active && (
+                <p className={simulation.circuit.powered[instance.id] ? "power-on" : "muted"}>
+                  Питание: {simulation.circuit.powered[instance.id] ? "есть" : "нет"} ·{" "}
+                  {simulation.circuit.voltages[instance.id]?.toFixed(2) ?? "—"} В
+                </p>
+              )}
+              {model.kind === "access_module" && (
+                <button
+                  type="button"
+                  disabled={simulation.status !== "running"}
+                  onClick={() => simulation.dispatch({ type: "reboot", deviceId: instance.id })}
+                >
+                  Перезапустить модуль
+                </button>
+              )}
               <DeviceSettings
                 instance={instance}
                 model={model}
@@ -420,6 +484,9 @@ export function App() {
           )}
         </aside>
       </div>
+      {showSimulation && (
+        <SimulationPanel project={project} simulation={simulation} onClose={() => setShowSimulation(false)} />
+      )}
       <footer className="statusbar">
         <span>Объект / Этаж 1</span>
         <span>Локальный проект · Ctrl+Z — отмена · Ctrl+Shift+Z — повтор</span>
