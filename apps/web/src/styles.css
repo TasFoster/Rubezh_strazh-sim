@@ -407,3 +407,34 @@ h2 {
     display: none;
   }
 }
+.wide {
+  width: 100%;
+  margin: 10px 0;
+}
+.plan-panel > .muted {
+  line-height: 1.7;
+}
+.plan-panel > label {
+  margin-top: 15px;
+}
+.field-pair {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+.field-pair > * {
+  min-width: 0;
+  flex: 1;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #e2e9ef;
+  margin: 22px 0;
+}
+h3 {
+  font-size: 12px;
+}
+.plan-panel p {
+  font-size: 11px;
+  line-height: 1.7;
+}

@@ -8,6 +8,7 @@ import {
   removeDevice,
 } from "@strazh-sim/core";
 import { useEffect, useRef, useState } from "react";
+import { PlanPanel } from "./PlanPanel";
 import { downloadProject } from "./storage";
 import { useEditor } from "./useEditor";
 import { Workbench } from "./Workbench";
@@ -18,6 +19,8 @@ export function App() {
   const [selected, setSelected] = useState<string>();
   const [query, setQuery] = useState("");
   const [grid, setGrid] = useState(true);
+  const [calibrating, setCalibrating] = useState(false);
+  const [marks, setMarks] = useState<Position[]>([]);
   const file = useRef<HTMLInputElement>(null);
   const instance = project.devices.find((device) => device.id === selected);
   const model = instance ? getDevice(instance.modelId) : undefined;
@@ -137,6 +140,9 @@ export function App() {
         <label>
           <input type="checkbox" checked={grid} onChange={(event) => setGrid(event.target.checked)} /> Сетка
         </label>
+        <button type="button" onClick={() => setSelected(undefined)}>
+          План объекта
+        </button>
         <span className="toolbar-spacer" />
         <span>{project.devices.length} устройств</span>
         <button
@@ -207,6 +213,14 @@ export function App() {
           onSelect={setSelected}
           onAdd={addDevice}
           grid={grid}
+          calibrating={calibrating}
+          marks={marks}
+          onPlanClick={(point) => setMarks((current) => (current.length < 2 ? [...current, point] : [point]))}
+          onBackgroundMove={(point) =>
+            change((draft) => {
+              if (draft.plan.background) Object.assign(draft.plan.background, point);
+            })
+          }
           onMove={(id, position) =>
             change((draft) => {
               const item = draft.devices.find((device) => device.id === id);
@@ -275,11 +289,17 @@ export function App() {
               </button>
             </>
           ) : (
-            <div className="inspector-empty">
-              Выберите устройство
-              <br />
-              на рабочем поле
-            </div>
+            <PlanPanel
+              project={project}
+              change={change}
+              onError={editor.setError}
+              calibrating={calibrating}
+              marks={marks}
+              onCalibrate={(active) => {
+                setCalibrating(active);
+                setMarks([]);
+              }}
+            />
           )}
         </aside>
       </div>

@@ -11,8 +11,23 @@ type Props = {
   onMove: (id: string, point: Position) => void;
   onAdd: (modelId: string, point: Position) => void;
   grid: boolean;
+  calibrating: boolean;
+  marks: Position[];
+  onPlanClick: (point: Position) => void;
+  onBackgroundMove: (point: Position) => void;
 };
-export function Workbench({ project, selected, onSelect, onMove, onAdd, grid }: Props) {
+export function Workbench({
+  project,
+  selected,
+  onSelect,
+  onMove,
+  onAdd,
+  grid,
+  calibrating,
+  marks,
+  onPlanClick,
+  onBackgroundMove,
+}: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [size, setSize] = useState({ width: 1000, height: 700 });
@@ -62,6 +77,12 @@ export function Workbench({ project, selected, onSelect, onMove, onAdd, grid }: 
         aria-label="План объекта"
         role="img"
         viewBox={`${camera.x} ${camera.y} ${size.width / camera.zoom} ${size.height / camera.zoom}`}
+        onPointerDownCapture={(event) => {
+          if (calibrating && event.button === 0) {
+            event.stopPropagation();
+            onPlanClick(pointAt(event.clientX, event.clientY));
+          }
+        }}
         onContextMenu={(event) => event.preventDefault()}
         onWheel={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
@@ -93,7 +114,10 @@ export function Workbench({ project, selected, onSelect, onMove, onAdd, grid }: 
           }
         }}
         onPointerUp={() => {
-          if (drag) onMove(drag.id, drag.point);
+          if (drag) {
+            if (drag.id === "__background") onBackgroundMove(drag.point);
+            else onMove(drag.id, drag.point);
+          }
           setDrag(undefined);
           pan.current = undefined;
         }}
@@ -118,6 +142,56 @@ export function Workbench({ project, selected, onSelect, onMove, onAdd, grid }: 
             pointerEvents="none"
           />
         )}
+        {project.plan.background &&
+          (() => {
+            const bg = project.plan.background;
+            const pos = drag?.id === "__background" ? drag.point : bg;
+            return (
+              <image
+                href={bg.dataUrl}
+                x={pos.x}
+                y={pos.y}
+                width={bg.width}
+                height={bg.height}
+                transform={`rotate(${bg.rotation} ${pos.x + bg.width / 2} ${pos.y + bg.height / 2})`}
+                opacity={bg.opacity}
+                pointerEvents={bg.locked ? "none" : "auto"}
+                onPointerDown={(event) => {
+                  if (event.button !== 0 || bg.locked) return;
+                  event.stopPropagation();
+                  const point = pointAt(event.clientX, event.clientY);
+                  setDrag({
+                    id: "__background",
+                    offset: { x: point.x - bg.x, y: point.y - bg.y },
+                    point: { x: bg.x, y: bg.y },
+                  });
+                  svg.current?.setPointerCapture(event.pointerId);
+                }}
+              />
+            );
+          })()}
+        {marks.length === 2 && (
+          <line
+            x1={marks[0]?.x}
+            y1={marks[0]?.y}
+            x2={marks[1]?.x}
+            y2={marks[1]?.y}
+            stroke="#d88a20"
+            strokeWidth="2"
+            strokeDasharray="6 4"
+            pointerEvents="none"
+          />
+        )}
+        {marks.map((point, index) => (
+          <circle
+            key={index === 0 ? "first" : "second"}
+            cx={point.x}
+            cy={point.y}
+            r="6"
+            fill="#d88a20"
+            pointerEvents="none"
+          />
+        ))}
         {project.devices.map((instance) => {
           const model = getDevice(instance.modelId);
           const position = drag?.id === instance.id ? drag.point : instance.position;
