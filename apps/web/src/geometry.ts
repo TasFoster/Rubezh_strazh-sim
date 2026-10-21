@@ -135,7 +135,11 @@ function escapePort(project: Project, endpoint: Endpoint, detail: boolean): Posi
 export function routeCables(project: Project, detail: boolean, floorId: string): RoutedWire[] {
   const obstacles = project.devices
     .filter((device) => device.floorId === floorId)
-    .map((device) => ({ id: device.id, rect: inflateRect(deviceBounds(device, detail), 12) }));
+    .map((device) => ({
+      id: device.id,
+      rect: inflateRect(deviceBounds(device, detail), 12),
+      body: deviceBounds(device, detail),
+    }));
   const occupied: Segment[] = [],
     result: RoutedWire[] = [];
   const cables = project.cables
@@ -176,11 +180,14 @@ export function routeCables(project: Project, detail: boolean, floorId: string):
         const edges = segments(points);
         if (
           edges.some((edge, index) =>
-            obstacles.some(
-              (obstacle) =>
-                !(index === 0 && obstacle.id === core.from.deviceId) &&
-                !(index === edges.length - 1 && obstacle.id === core.to.deviceId) &&
-                segmentIntersectsRect(edge, obstacle.rect),
+            obstacles.some((obstacle) =>
+              segmentIntersectsRect(
+                edge,
+                (index === 0 && obstacle.id === core.from.deviceId) ||
+                  (index === edges.length - 1 && obstacle.id === core.to.deviceId)
+                  ? obstacle.body
+                  : obstacle.rect,
+              ),
             ),
           )
         )
@@ -202,8 +209,8 @@ export function routeCables(project: Project, detail: boolean, floorId: string):
 }
 export function wireBridges(
   wires: readonly RoutedWire[],
-): { key: string; point: Position; horizontal: boolean; color: string }[] {
-  const result: { key: string; point: Position; horizontal: boolean; color: string }[] = [];
+): { key: string; point: Position; angle: number; color: string }[] {
+  const result: { key: string; point: Position; angle: number; color: string }[] = [];
   for (let i = 0; i < wires.length; i++) {
     const wire = wires[i];
     if (!wire) continue;
@@ -221,7 +228,12 @@ export function wireBridges(
           )
             continue;
           seen.add(key);
-          result.push({ key, point, horizontal: Math.abs(edge.from.y - edge.to.y) < 1e-6, color: wire.color });
+          result.push({
+            key,
+            point,
+            angle: (Math.atan2(edge.to.y - edge.from.y, edge.to.x - edge.from.x) * 180) / Math.PI,
+            color: wire.color,
+          });
         }
   }
   return result;
@@ -230,7 +242,11 @@ export function wireBridges(
 export function closestSegmentIndex(points: readonly Position[], target: Position): number {
   let best = 0,
     distance = Infinity;
-  for (const [index, edge] of segments(points).entries()) {
+  for (let index = 0; index < points.length - 1; index++) {
+    const from = points[index],
+      to = points[index + 1];
+    if (!from || !to) continue;
+    const edge = { from, to };
     const dx = edge.to.x - edge.from.x,
       dy = edge.to.y - edge.from.y,
       length = dx * dx + dy * dy;

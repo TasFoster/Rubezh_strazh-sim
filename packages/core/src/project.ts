@@ -14,6 +14,13 @@ const ipv4 = z.string().refine((value) => {
   const parts = value.split(".");
   return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);
 }, "Некорректный IPv4-адрес");
+const subnetMask = ipv4.refine((value) => {
+  const bits = value
+    .split(".")
+    .map((part) => Number(part).toString(2).padStart(8, "0"))
+    .join("");
+  return /^1*0*$/.test(bits);
+}, "Маска подсети должна содержать непрерывную последовательность единиц");
 
 export const AccessPointSchema = z.object({
   id,
@@ -44,7 +51,7 @@ export const ControllerConfigSchema = z.object({
       { id: "rs485_2", baudRate: 115200, pollMs: 100, timeoutMs: 100 },
     ]),
   ip: ipv4.default("192.168.0.100"),
-  mask: ipv4.default("255.255.255.0"),
+  mask: subnetMask.default("255.255.255.0"),
   gateway: ipv4.default("192.168.0.1"),
   time: z
     .string()
@@ -220,6 +227,7 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
     if (device.controller && model?.kind !== "controller") errors.push(`Настройки контроллера у ${device.id}`);
     if (device.controller) {
       const config = device.controller;
+      const usedRelays = new Set<string>();
       unique(config.lines, "линии");
       unique(config.points, "точки доступа");
       unique(config.cards, "карты");
@@ -232,6 +240,13 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
       }
       for (const point of config.points) {
         checkKind(point.moduleId, "access_module");
+        const relayKey = `${point.moduleId}/${point.relay}`;
+        if (usedRelays.has(relayKey)) errors.push(`Реле назначено нескольким точкам: ${relayKey}`);
+        usedRelays.add(relayKey);
+        const module = instances.get(point.moduleId),
+          spec = models.get(module?.modelId ?? "");
+        if (!spec?.electrical?.relays.some((relay) => relay.id === `k${point.relay}`))
+          errors.push(`Неизвестное реле: ${relayKey}`);
         checkKind(point.readerId, "reader");
         if (point.exitReaderId) checkKind(point.exitReaderId, "reader");
         const actuator = instances.get(point.lockId);
@@ -251,6 +266,8 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
     if (!floors.has(floorId) || background.floorId !== floorId)
       errors.push(`Некорректный этаж фонового плана: ${floorId}`);
   }
+  if (project.plan.background && !floors.has(project.plan.background.floorId))
+    errors.push("Неизвестный этаж фонового плана");
   for (const door of project.plan.doors) {
     if (door.wallId && !project.plan.walls.some((wall) => wall.id === door.wallId && wall.floorId === door.floorId))
       errors.push(`Неизвестная стена двери: ${door.wallId}`);

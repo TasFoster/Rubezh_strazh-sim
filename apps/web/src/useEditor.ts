@@ -1,16 +1,18 @@
 import { devices } from "@strazh-sim/content";
 import { createProject, type Project, parseProject } from "@strazh-sim/core";
-import { useCallback, useEffect, useState } from "react";
-import { loadProject, saveProject } from "./storage";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadProject, StorageConflictError, savedProjectText, saveProject } from "./storage";
 
 type History = { past: Project[]; present: Project; future: Project[] };
 export function useEditor() {
   const [initial] = useState(() => {
     try {
-      return { project: loadProject() ?? createProject(), error: "" };
+      const raw = savedProjectText();
+      return { project: loadProject(raw) ?? createProject(), error: "", raw };
     } catch {
       return {
         project: createProject(),
+        raw: undefined,
         error:
           "Сохранённый проект повреждён. Автосохранение отключено до открытия или создания объекта; исходная запись сохранена.",
       };
@@ -25,6 +27,30 @@ export function useEditor() {
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [saved, setSaved] = useState(false);
   const [history, setHistory] = useState<History>({ past: [], present: initial.project, future: [] });
+  const expectedSave = useRef(initial.raw);
+  const lastSaved = useRef<Project | undefined>(initial.raw !== null && !initial.error ? initial.project : undefined);
+  const latest = useRef({ project: history.present, blocked: saveBlocked });
+  latest.current = { project: history.present, blocked: saveBlocked };
+  useEffect(() => {
+    const flush = () => {
+      if (latest.current.blocked || latest.current.project === lastSaved.current) return;
+      try {
+        expectedSave.current = saveProject(latest.current.project, expectedSave.current);
+        lastSaved.current = latest.current.project;
+      } catch {
+        // Invalid drafts and full storage must leave the last valid save untouched.
+      }
+    };
+    const hidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
   const change = useCallback((recipe: (draft: Project) => void) => {
     setHistory((current) => {
       const next = structuredClone(current.present);
@@ -34,6 +60,11 @@ export function useEditor() {
     });
   }, []);
   const replace = useCallback((project: Project) => {
+    try {
+      expectedSave.current = savedProjectText();
+    } catch {
+      expectedSave.current = undefined;
+    }
     setSaveBlocked(false);
     setHistory((current) => ({ past: [...current.past.slice(-49), current.present], present: project, future: [] }));
   }, []);
@@ -68,11 +99,16 @@ export function useEditor() {
         return;
       }
       try {
-        saveProject(history.present);
+        expectedSave.current = saveProject(history.present, expectedSave.current);
+        lastSaved.current = history.present;
         setSaved(true);
         setSaveError("");
-      } catch {
-        setSaveError("Автосохранение не выполнено: хранилище недоступно или заполнено. Экспортируйте проект.");
+      } catch (error) {
+        setSaveError(
+          error instanceof StorageConflictError
+            ? "Проект изменён в другой вкладке. Текущие правки не перезаписали сохранение; экспортируйте их или откройте объект заново."
+            : "Автосохранение не выполнено: хранилище недоступно или заполнено. Экспортируйте проект.",
+        );
       }
     }, 350);
     return () => window.clearTimeout(timeout);

@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type MenuItem =
-  | { label: string; action: () => void; disabled?: boolean; checked?: boolean; hint?: string }
+  | { id?: string; label: string; action: () => void; disabled?: boolean; checked?: boolean; hint?: string }
   | { heading: string };
 export function ActionMenu({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
@@ -98,7 +98,7 @@ export function ActionMenu({ label, items }: { label: string; items: MenuItem[] 
                 </div>
               ) : (
                 <button
-                  key={item.label}
+                  key={item.id ?? item.label}
                   type="button"
                   {...(item.checked === undefined
                     ? { role: "menuitem" as const }

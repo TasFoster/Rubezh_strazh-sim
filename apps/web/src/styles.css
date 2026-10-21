@@ -111,6 +111,7 @@ h2 {
   border: 1px solid #425967;
   color: white;
   max-width: 330px;
+  min-width: 0;
 }
 .save-status {
   margin-left: auto;
@@ -679,8 +680,8 @@ h3 {
 }
 .controller-window {
   position: fixed;
-  width: min(1050px, calc(100vw - 150px));
-  height: min(620px, calc(100dvh - 150px));
+  width: min(1050px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 100px));
   background: white;
   border: 1px solid #99a8b1;
   border-radius: 8px;

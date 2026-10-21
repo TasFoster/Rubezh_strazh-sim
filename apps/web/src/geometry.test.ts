@@ -1,7 +1,7 @@
 import { createDoorProject, createTwoControllersProject } from "@strazh-sim/content";
 import { rectanglesOverlap, segmentIntersectsRect, segments } from "@strazh-sim/core";
 import { describe, expect, it } from "vitest";
-import { arrangeDevices, deviceBounds, floorBounds, routeCables } from "./geometry";
+import { arrangeDevices, closestSegmentIndex, deviceBounds, floorBounds, routeCables, wireBridges } from "./geometry";
 
 describe("компоновка стенда", () => {
   it.each([false, true])("компоненты и автопровода не пересекают корпуса; клеммы=%s", (detail) => {
@@ -46,4 +46,34 @@ describe("компоновка стенда", () => {
     expect(routeCables(project, true, "floor_1").every((wire) => !wire.warning)).toBe(true);
     expect(JSON.stringify(project.cables)).toBe(connections);
   });
+});
+
+it("ручной узел вставляется в выбранный сегмент, включая повторные точки", () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 100 },
+  ];
+  expect(closestSegmentIndex(points, { x: 100, y: 50 })).toBe(2);
+});
+it("дуги имеют уникальные ключи даже при одинаковых ID жил в разных кабелях", () => {
+  const project = createDoorProject(true);
+  arrangeDevices(project, false, "floor_1");
+  const bridges = wireBridges(routeCables(project, false, "floor_1"));
+  expect(bridges.length).toBeGreaterThan(0);
+  expect(new Set(bridges.map((item) => item.key)).size).toBe(bridges.length);
+});
+
+it("предупреждает о ручной трассе, уходящей внутрь собственного корпуса", () => {
+  const project = createDoorProject(true),
+    cable = project.cables[0];
+  if (!cable?.cores[0]) throw new Error("fixture");
+  cable.routing = "manual";
+  cable.route = [];
+  cable.cores[0].from = { deviceId: "psu", terminalId: "pos" };
+  cable.cores[0].to = { deviceId: "lock", terminalId: "pos" };
+  expect(routeCables(project, false, "floor_1").find((wire) => wire.cableId === cable.id)?.warning).toContain(
+    "пересекает компонент",
+  );
 });

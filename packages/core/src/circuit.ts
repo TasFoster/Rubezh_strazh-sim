@@ -273,9 +273,20 @@ export function solveCircuit(
         ? !disabled.has(device.id) && volts !== undefined && Math.abs(volts - device.settings.voltage) < 0.01
         : volts !== undefined && volts >= model.supply.minVoltage && volts <= model.supply.maxVoltage);
     if (model.kind !== "power_supply" && device.settings.enabled) {
+      const unlocking =
+        model.kind === "lock" &&
+        project.devices.some((controller) =>
+          controller.controller?.points.some(
+            (point) => point.lockId === device.id && controls.relays?.[key(point.moduleId, `k${point.relay}`)],
+          ),
+        );
+      const expectedUnpowered =
+        model.kind === "lock" &&
+        (device.settings.lockMode === "fail_safe" ? unlocking : !unlocking) &&
+        (volts === undefined || Math.abs(volts) < 0.01);
       if (volts !== undefined && volts < -0.5)
         diagnostics.push({ code: "polarity", deviceId: device.id, message: `${device.name}: переполюсовка` });
-      else if (!powered[device.id])
+      else if (!powered[device.id] && !expectedUnpowered)
         diagnostics.push({
           code: "power",
           deviceId: device.id,

@@ -9,7 +9,7 @@ import {
   parseProject,
   prunePlanBindings,
 } from "@strazh-sim/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { linkLabel } from "./labels";
 import type { SimulationController } from "./useSimulation";
 
@@ -33,8 +33,21 @@ const pages = [
   ["cards", "Сотрудники и карты"],
   ["events", "Журнал событий"],
 ] as const;
+function clampWindow(point: { x: number; y: number }) {
+  const width = Math.min(1050, window.innerWidth - 32),
+    height = Math.min(620, window.innerHeight - 100);
+  return {
+    x: Math.max(12, Math.min(window.innerWidth - width - 12, point.x)),
+    y: Math.max(12, Math.min(window.innerHeight - height - 12, point.y)),
+  };
+}
 export function ControllerWindow({ project, controller, simulation: sim, change, onClose, onRaise, order }: Props) {
-  const [position, setPosition] = useState({ x: 120 + (order % 3) * 24, y: 125 + (order % 3) * 18 });
+  const [position, setPosition] = useState(() => clampWindow({ x: 120 + (order % 3) * 24, y: 125 + (order % 3) * 18 }));
+  useEffect(() => {
+    const resize = () => setPosition((point) => clampWindow(point));
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
   const drag = useRef<{ x: number; y: number; origin: { x: number; y: number } } | undefined>(undefined);
   const config = controller.controller ?? ControllerConfigSchema.parse({});
   const [page, setPage] = useState("system");
@@ -120,14 +133,13 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
       setMessage("Карта уже добавлена");
       return;
     }
-    update((next) =>
-      next.cards.push({
-        id: cardId,
-        owner: owner.trim(),
-        pointIds: rights.filter((id) => next.points.some((point) => point.id === id)),
-        enabled: true,
-      }),
-    );
+    const pointIds = rights.filter((id) => config.points.some((point) => point.id === id));
+    const card = { id: cardId, owner: owner.trim(), pointIds, enabled: true };
+    if (!pointIds.length || !ControllerConfigSchema.safeParse({ ...config, cards: [...config.cards, card] }).success) {
+      setMessage("Проверьте код карты и выберите существующую точку доступа");
+      return;
+    }
+    update((next) => next.cards.push(card));
     setMessage("Карта добавлена");
   };
   const currentLinks = sim.links.filter((link) => link.controllerId === controller.id);
@@ -150,8 +162,10 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
           const origin = drag.current;
           if (origin)
             setPosition({
-              x: Math.max(0, Math.min(window.innerWidth - 200, origin.origin.x + event.clientX - origin.x)),
-              y: Math.max(0, Math.min(window.innerHeight - 60, origin.origin.y + event.clientY - origin.y)),
+              ...clampWindow({
+                x: origin.origin.x + event.clientX - origin.x,
+                y: origin.origin.y + event.clientY - origin.y,
+              }),
             });
         }}
         onPointerUp={() => {

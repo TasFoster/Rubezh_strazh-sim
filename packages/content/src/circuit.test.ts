@@ -115,3 +115,18 @@ it("измеряет две оконечные нагрузки и отлича�
     for (const core of cable.cores) core.broken = true;
   expect(classifyInput(solveCircuit(project, devices).resistance(from, to), true)).toBe("broken");
 });
+
+it("штатное отпускание замка не считается обрывом питания, обрыв в покое диагностируется", () => {
+  const project = createDoorProject(true);
+  const unlocked = solveCircuit(project, devices, { relays: { "module/k1": true } });
+  expect(unlocked.actuatorsOpen.lock).toBe(true);
+  expect(unlocked.diagnostics.filter((item) => item.deviceId === "lock")).toEqual([]);
+  const wire = project.cables.find((cable) =>
+    cable.cores.some((core) => core.to.deviceId === "lock" && core.to.terminalId === "pos"),
+  );
+  if (!wire?.cores[0]) throw new Error("fixture");
+  wire.cores[0].broken = true;
+  expect(
+    solveCircuit(project, devices).diagnostics.some((item) => item.deviceId === "lock" && item.code === "power"),
+  ).toBe(true);
+});

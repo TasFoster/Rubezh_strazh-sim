@@ -521,25 +521,13 @@ export function Workbench({
             </g>
           );
         })}
-        {bridges.map(({ key, point, horizontal, color }) => {
-          const path = horizontal
-            ? `M ${point.x - 5} ${point.y} Q ${point.x} ${point.y - 10} ${point.x + 5} ${point.y}`
-            : `M ${point.x} ${point.y - 5} Q ${point.x + 10} ${point.y} ${point.x} ${point.y + 5}`;
-          return (
-            <g key={key} pointerEvents="none">
-              <line
-                x1={horizontal ? point.x - 6 : point.x}
-                y1={horizontal ? point.y : point.y - 6}
-                x2={horizontal ? point.x + 6 : point.x}
-                y2={horizontal ? point.y : point.y + 6}
-                stroke="white"
-                strokeWidth="7"
-              />
-              <path d={path} fill="none" stroke="white" strokeWidth="7" />
-              <path d={path} fill="none" stroke={color} strokeWidth="2.5" />
-            </g>
-          );
-        })}
+        {bridges.map(({ key, point, angle, color }) => (
+          <g key={key} pointerEvents="none" transform={`translate(${point.x} ${point.y}) rotate(${angle})`}>
+            <line x1="-6" y1="0" x2="6" y2="0" stroke="white" strokeWidth="7" />
+            <path d="M -5 0 Q 0 -10 5 0" fill="none" stroke="white" strokeWidth="7" />
+            <path d="M -5 0 Q 0 -10 5 0" fill="none" stroke={color} strokeWidth="2.5" />
+          </g>
+        ))}
         {project.cables
           .filter((cable) => cable.id === selectedCable)
           .flatMap((cable) =>

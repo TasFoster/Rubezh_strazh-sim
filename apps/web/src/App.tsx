@@ -152,10 +152,13 @@ export function App() {
   const addDevice = (modelId: string, position: Position) => {
     const spec = getDevice(modelId);
     const id = crypto.randomUUID();
+    let name = spec.name,
+      suffix = 2;
+    while (project.devices.some((device) => device.name === name)) name = `${spec.name} ${suffix++}`;
     const item = InstanceSchema.parse({
       id,
       modelId,
-      name: spec.name,
+      name,
       position,
       floorId,
       settings: { currentA: spec.electrical?.power?.currentA || 0.1 },
@@ -525,7 +528,7 @@ export function App() {
             { heading: "Контроллеры" },
             ...project.devices
               .filter((device) => device.controller)
-              .map((device) => ({ label: device.name, action: () => openController(device.id) })),
+              .map((device) => ({ id: device.id, label: device.name, action: () => openController(device.id) })),
           ]}
         />
       </div>
