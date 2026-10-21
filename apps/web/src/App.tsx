@@ -2,12 +2,15 @@ import { devices, getDevice } from "@strazh-sim/content";
 import {
   ControllerConfigSchema,
   createProject,
+  type Endpoint,
   InstanceSchema,
   type Position,
   parseProject,
   removeDevice,
 } from "@strazh-sim/core";
 import { useEffect, useRef, useState } from "react";
+import { CablePanel } from "./CablePanel";
+import { DeviceSettings } from "./DeviceSettings";
 import { PlanPanel } from "./PlanPanel";
 import { downloadProject } from "./storage";
 import { useEditor } from "./useEditor";
@@ -17,12 +20,17 @@ export function App() {
   const editor = useEditor();
   const { project, change, replace, undo, redo } = editor;
   const [selected, setSelected] = useState<string>();
+  const [selectedCable, setSelectedCable] = useState<string>();
+  const [detail, setDetail] = useState(false);
+  const [pending, setPending] = useState<Endpoint>();
+  const [route, setRoute] = useState<Position[]>([]);
   const [query, setQuery] = useState("");
   const [grid, setGrid] = useState(true);
   const [calibrating, setCalibrating] = useState(false);
   const [marks, setMarks] = useState<Position[]>([]);
   const file = useRef<HTMLInputElement>(null);
   const instance = project.devices.find((device) => device.id === selected);
+  const cable = project.cables.find((item) => item.id === selectedCable);
   const model = instance ? getDevice(instance.modelId) : undefined;
   const addDevice = (modelId: string, position: Position) => {
     const spec = getDevice(modelId);
@@ -34,11 +42,44 @@ export function App() {
           modelId,
           name: spec.name,
           position,
+          settings: { currentA: spec.electrical?.power?.currentA || 0.1 },
           ...(spec.kind === "controller" ? { controller: ControllerConfigSchema.parse({}) } : {}),
         }),
       ),
     );
     setSelected(id);
+  };
+  const connect = (endpoint: Endpoint) => {
+    if (!pending) {
+      setPending(endpoint);
+      setRoute([]);
+      return;
+    }
+    if (pending.deviceId !== endpoint.deviceId || pending.terminalId !== endpoint.terminalId) {
+      const cableId = crypto.randomUUID();
+      const from = project.devices.find((device) => device.id === pending.deviceId)?.position;
+      const to = project.devices.find((device) => device.id === endpoint.deviceId)?.position;
+      const points = [from, ...route, to].filter((point): point is Position => Boolean(point));
+      const length = points.slice(1).reduce((sum, point, i) => {
+        const previous = points[i];
+        return sum + (previous ? Math.hypot(point.x - previous.x, point.y - previous.y) : 0);
+      }, 0);
+      change((draft) =>
+        draft.cables.push({
+          id: cableId,
+          name: `Кабель ${draft.cables.length + 1}`,
+          floorId: "floor_1",
+          route: route.map((point) => ({ ...point, id: crypto.randomUUID() })),
+          lengthM: Math.round(length * draft.plan.metersPerUnit * 10) / 10,
+          sectionMm2: 0.5,
+          cores: [{ id: crypto.randomUUID(), color: "#347b84", from: pending, to: endpoint, broken: false }],
+        }),
+      );
+      setSelectedCable(cableId);
+      setSelected(undefined);
+    }
+    setPending(undefined);
+    setRoute([]);
   };
   const remove = () => {
     if (selected) {
@@ -76,7 +117,12 @@ export function App() {
         replace(removeDevice(project, selected));
         setSelected(undefined);
       }
-      if (event.key === "Escape") setSelected(undefined);
+      if (event.key === "Escape") {
+        setSelected(undefined);
+        setPending(undefined);
+        setRoute([]);
+        setSelectedCable(undefined);
+      }
     };
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
@@ -143,6 +189,28 @@ export function App() {
         <button type="button" onClick={() => setSelected(undefined)}>
           План объекта
         </button>
+        <button
+          type="button"
+          className={detail ? "active" : ""}
+          onClick={() => {
+            setDetail(!detail);
+            setPending(undefined);
+            setRoute([]);
+          }}
+        >
+          {detail ? "К плану" : "Монтаж / клеммы"}
+        </button>
+        {pending && (
+          <button
+            type="button"
+            onClick={() => {
+              setPending(undefined);
+              setRoute([]);
+            }}
+          >
+            Отменить провод
+          </button>
+        )}
         <span className="toolbar-spacer" />
         <span>{project.devices.length} устройств</span>
         <button
@@ -210,12 +278,39 @@ export function App() {
         <Workbench
           project={project}
           selected={selected}
-          onSelect={setSelected}
+          onSelect={(id) => {
+            setSelected(id);
+            setSelectedCable(undefined);
+          }}
           onAdd={addDevice}
           grid={grid}
+          detail={detail}
+          pending={pending}
+          route={route}
+          selectedCable={selectedCable}
+          onTerminal={connect}
+          onCable={(id) => {
+            setSelectedCable(id);
+            setSelected(undefined);
+          }}
+          onRouteMove={(id, index, point) =>
+            change((draft) => {
+              const item = draft.cables.find((item) => item.id === id);
+              const previous = item?.route[index];
+              if (item && previous) item.route[index] = { ...point, id: previous.id };
+            })
+          }
+          onRouteAdd={(id, point) =>
+            change((draft) => {
+              draft.cables.find((item) => item.id === id)?.route.push({ ...point, id: crypto.randomUUID() });
+            })
+          }
           calibrating={calibrating}
           marks={marks}
-          onPlanClick={(point) => setMarks((current) => (current.length < 2 ? [...current, point] : [point]))}
+          onPlanClick={(point) => {
+            if (pending) setRoute((current) => [...current, point]);
+            else setMarks((current) => (current.length < 2 ? [...current, point] : [point]));
+          }}
           onBackgroundMove={(point) =>
             change((draft) => {
               if (draft.plan.background) Object.assign(draft.plan.background, point);
@@ -230,7 +325,19 @@ export function App() {
         />
         <aside className="inspector">
           <div className="section-heading">Свойства</div>
-          {instance && model ? (
+          {cable ? (
+            <CablePanel
+              cable={cable}
+              project={project}
+              change={change}
+              onDelete={() => {
+                change((draft) => {
+                  draft.cables = draft.cables.filter((item) => item.id !== cable.id);
+                });
+                setSelectedCable(undefined);
+              }}
+            />
+          ) : instance && model ? (
             <>
               <span className="eyebrow">{model.kind}</span>
               <h2>{instance.name}</h2>
@@ -279,6 +386,16 @@ export function App() {
                   />
                 </label>
               )}
+              <DeviceSettings
+                instance={instance}
+                model={model}
+                onChange={(settings) =>
+                  change((draft) => {
+                    const item = draft.devices.find((device) => device.id === selected);
+                    if (item) Object.assign(item.settings, settings);
+                  })
+                }
+              />
               <div className="spec-note">
                 {model.source.document}
                 <br />

@@ -50,6 +50,8 @@ export const InstanceSchema = z.object({
   floorId: id.default("floor_1"),
   settings: z
     .object({
+      resistanceOhm: finite.positive().max(10000000).default(4700),
+      supervision: z.record(z.string(), z.boolean()).default({}),
       address: z.number().int().min(0).max(127).default(1),
       voltage: z.number().positive().max(60).default(12),
       maxCurrentA: z.number().positive().max(30).default(3),
@@ -68,7 +70,7 @@ export const CableSchema = z.object({
   id,
   name: z.string().min(1),
   floorId: id.default("floor_1"),
-  route: z.array(PositionSchema).default([]),
+  route: z.array(PositionSchema.extend({ id })).default([]),
   lengthM: finite.min(0).max(10000).default(1),
   sectionMm2: finite.positive().max(100).default(0.5),
   cores: z
@@ -197,6 +199,7 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
   }
   for (const cable of project.cables) {
     unique(cable.cores, "жилы");
+    unique(cable.route, "узла маршрута");
     for (const core of cable.cores) {
       for (const end of [core.from, core.to]) {
         const instance = instances.get(end.deviceId);

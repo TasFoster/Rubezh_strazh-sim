@@ -438,3 +438,52 @@ h3 {
   font-size: 11px;
   line-height: 1.7;
 }
+.active {
+  background: #e1f1ed;
+  border-color: #5b9c96;
+  color: #216e6c;
+}
+.core-editor {
+  border-top: 1px solid #dae3e9;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.core-editor input[type="color"] {
+  width: 32px;
+  height: 22px;
+  padding: 0;
+}
+.inspector .core-editor label select {
+  font-size: 10px;
+}
+.route-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  margin: 5px 0;
+}
+.dip-switches {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+.dip-switches label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #eef3f6;
+  border: 1px solid #dae3e9;
+  padding: 7px;
+}
+.inspector .dip-switches label input {
+  margin: 0;
+}
+.device-settings > label {
+  margin: 12px 0;
+}
+.warning {
+  color: #ba651b;
+  font-size: 11px;
+}

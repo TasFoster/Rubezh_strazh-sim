@@ -1,0 +1,269 @@
+[
+  {
+    "id": "training_psu",
+    "name": "Блок питания DC (учебный)",
+    "kind": "power_supply",
+    "source": {
+      "document": "Учебная модель; параметры задаются в свойствах",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 3
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Клеммы"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "pos",
+        "label": "+U",
+        "kind": "power_out",
+        "block": "main"
+      },
+      {
+        "id": "neg",
+        "label": "GND",
+        "kind": "ground",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "power": {
+        "positive": "pos",
+        "negative": "neg",
+        "currentA": 0
+      }
+    }
+  },
+  {
+    "id": "training_reader",
+    "name": "Считыватель Wiegand (учебный)",
+    "kind": "reader",
+    "source": {
+      "document": "Учебная модель; параметры задаются в свойствах",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 0.08
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Клеммы"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "pos",
+        "label": "+U",
+        "kind": "power_in",
+        "block": "main"
+      },
+      {
+        "id": "neg",
+        "label": "GND",
+        "kind": "ground",
+        "block": "main"
+      },
+      {
+        "id": "d0",
+        "label": "D0",
+        "kind": "wiegand_d0",
+        "block": "main"
+      },
+      {
+        "id": "d1",
+        "label": "D1",
+        "kind": "wiegand_d1",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "power": {
+        "positive": "pos",
+        "negative": "neg",
+        "currentA": 0.08
+      },
+      "readers": [
+        {
+          "id": "reader",
+          "d0": "d0",
+          "d1": "d1",
+          "positive": "pos",
+          "ground": "neg"
+        }
+      ]
+    }
+  },
+  {
+    "id": "training_lock",
+    "name": "Электрозамок (учебный)",
+    "kind": "lock",
+    "source": {
+      "document": "Учебная модель; параметры задаются в свойствах",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 0.5
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Клеммы"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "pos",
+        "label": "+U",
+        "kind": "power_in",
+        "block": "main"
+      },
+      {
+        "id": "neg",
+        "label": "GND",
+        "kind": "ground",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "power": {
+        "positive": "pos",
+        "negative": "neg",
+        "currentA": 0.5
+      }
+    }
+  },
+  {
+    "id": "training_button",
+    "name": "Кнопка выхода (учебная)",
+    "kind": "exit_button",
+    "source": {
+      "document": "Учебная модель; параметры задаются в свойствах",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 0.01
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Клеммы"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "a",
+        "label": "1",
+        "kind": "passive",
+        "block": "main"
+      },
+      {
+        "id": "b",
+        "label": "2",
+        "kind": "passive",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "contact": {
+        "a": "a",
+        "b": "b",
+        "normallyClosed": false
+      }
+    }
+  },
+  {
+    "id": "training_contact",
+    "name": "Геркон (учебный)",
+    "kind": "door_contact",
+    "source": {
+      "document": "Учебная модель; параметры задаются в свойствах",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 0.01
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Клеммы"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "a",
+        "label": "1",
+        "kind": "passive",
+        "block": "main"
+      },
+      {
+        "id": "b",
+        "label": "2",
+        "kind": "passive",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "contact": {
+        "a": "a",
+        "b": "b",
+        "normallyClosed": true
+      }
+    }
+  },
+  {
+    "id": "training_resistor",
+    "name": "Резистор (учебный)",
+    "kind": "resistor",
+    "source": {
+      "document": "Учебная модель; параметры задаются в свойствах",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 0.01
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Клеммы"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "a",
+        "label": "1",
+        "kind": "passive",
+        "block": "main"
+      },
+      {
+        "id": "b",
+        "label": "2",
+        "kind": "passive",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "contact": {
+        "a": "a",
+        "b": "b",
+        "normallyClosed": true
+      }
+    }
+  }
+]

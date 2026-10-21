@@ -1,0 +1,99 @@
+{
+  "id": "str20_ip",
+  "name": "Контроллер STR20-IP",
+  "kind": "controller",
+  "source": {
+    "document": "ПАСН.425728.007 ПС, табл. 1; РЭ ред. 12, с. 29–32 (модель: питание и OSDP)",
+    "edition": "ПС ред. 11 / РЭ ПО 1.7"
+  },
+  "supply": {
+    "minVoltage": 9,
+    "maxVoltage": 28,
+    "maxCurrentA": 0.8
+  },
+  "blocks": [
+    {
+      "id": "power",
+      "label": "Питание"
+    },
+    {
+      "id": "rs485_1",
+      "label": "RS-485-1"
+    },
+    {
+      "id": "rs485_2",
+      "label": "RS-485-2"
+    }
+  ],
+  "terminals": [
+    {
+      "id": "power_u",
+      "label": "+U",
+      "block": "power",
+      "kind": "power_in"
+    },
+    {
+      "id": "power_gnd",
+      "label": "GND",
+      "block": "power",
+      "kind": "ground"
+    },
+    {
+      "id": "rs1_pos",
+      "label": "+D",
+      "block": "rs485_1",
+      "kind": "rs485_pos"
+    },
+    {
+      "id": "rs1_gnd",
+      "label": "GND",
+      "block": "rs485_1",
+      "kind": "ground"
+    },
+    {
+      "id": "rs1_neg",
+      "label": "−D",
+      "block": "rs485_1",
+      "kind": "rs485_neg"
+    },
+    {
+      "id": "rs2_pos",
+      "label": "+D",
+      "block": "rs485_2",
+      "kind": "rs485_pos"
+    },
+    {
+      "id": "rs2_gnd",
+      "label": "GND",
+      "block": "rs485_2",
+      "kind": "ground"
+    },
+    {
+      "id": "rs2_neg",
+      "label": "−D",
+      "block": "rs485_2",
+      "kind": "rs485_neg"
+    }
+  ],
+  "electrical": {
+    "power": {
+      "positive": "power_u",
+      "negative": "power_gnd",
+      "currentA": 0.8
+    },
+    "buses": [
+      {
+        "id": "rs485_1",
+        "positive": "rs1_pos",
+        "negative": "rs1_neg",
+        "ground": "rs1_gnd"
+      },
+      {
+        "id": "rs485_2",
+        "positive": "rs2_pos",
+        "negative": "rs2_neg",
+        "ground": "rs2_gnd"
+      }
+    ]
+  }
+}

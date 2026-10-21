@@ -1,8 +1,8 @@
 import { getDevice } from "@strazh-sim/content";
-import type { Position, Project } from "@strazh-sim/core";
+import type { Endpoint, Position, Project } from "@strazh-sim/core";
 import { useEffect, useRef, useState } from "react";
 
-export const CARD_WIDTH = 180;
+import { cardSize, endpointPosition, terminalPoint } from "./geometry";
 export type Camera = { x: number; y: number; zoom: number };
 type Props = {
   project: Project;
@@ -11,6 +11,14 @@ type Props = {
   onMove: (id: string, point: Position) => void;
   onAdd: (modelId: string, point: Position) => void;
   grid: boolean;
+  detail: boolean;
+  pending: Endpoint | undefined;
+  route: Position[];
+  selectedCable: string | undefined;
+  onTerminal: (endpoint: Endpoint) => void;
+  onCable: (id: string) => void;
+  onRouteMove: (cableId: string, index: number, point: Position) => void;
+  onRouteAdd: (cableId: string, point: Position) => void;
   calibrating: boolean;
   marks: Position[];
   onPlanClick: (point: Position) => void;
@@ -23,6 +31,14 @@ export function Workbench({
   onMove,
   onAdd,
   grid,
+  detail,
+  pending,
+  route,
+  selectedCable,
+  onTerminal,
+  onCable,
+  onRouteMove,
+  onRouteAdd,
   calibrating,
   marks,
   onPlanClick,
@@ -78,7 +94,7 @@ export function Workbench({
         role="img"
         viewBox={`${camera.x} ${camera.y} ${size.width / camera.zoom} ${size.height / camera.zoom}`}
         onPointerDownCapture={(event) => {
-          if (calibrating && event.button === 0) {
+          if ((calibrating || pending) && event.button === 0 && event.target === event.currentTarget) {
             event.stopPropagation();
             onPlanClick(pointAt(event.clientX, event.clientY));
           }
@@ -115,7 +131,10 @@ export function Workbench({
         }}
         onPointerUp={() => {
           if (drag) {
-            if (drag.id === "__background") onBackgroundMove(drag.point);
+            if (drag.id.startsWith("__route|")) {
+              const [, cableId, index] = drag.id.split("|");
+              if (cableId && index) onRouteMove(cableId, Number(index), drag.point);
+            } else if (drag.id === "__background") onBackgroundMove(drag.point);
             else onMove(drag.id, drag.point);
           }
           setDrag(undefined);
@@ -192,14 +211,89 @@ export function Workbench({
             pointerEvents="none"
           />
         ))}
+        {project.cables.map((cable) => (
+          <g key={cable.id}>
+            {cable.cores.map((core) => {
+              const from = endpointPosition(project, core.from, detail, drag),
+                to = endpointPosition(project, core.to, detail, drag);
+              const nodes = cable.route.map((point, index) =>
+                drag?.id === `__route|${cable.id}|${index}` ? drag.point : point,
+              );
+              const points = [from, ...nodes, to].map((point) => `${point.x},${point.y}`).join(" ");
+              return (
+                <g key={core.id}>
+                  <polyline
+                    points={points}
+                    fill="none"
+                    stroke={selectedCable === cable.id ? "#e2af40" : "#fff"}
+                    strokeWidth={selectedCable === cable.id ? 7 : 5}
+                    pointerEvents="none"
+                  />
+                  {/* biome-ignore lint/a11y/useSemanticElements: SVG cable has keyboard interaction. */}
+                  <polyline
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Кабель ${cable.name}`}
+                    points={points}
+                    fill="none"
+                    stroke={core.color}
+                    strokeWidth="2.5"
+                    strokeDasharray={core.broken ? "5 4" : undefined}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCable(cable.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") onCable(cable.id);
+                    }}
+                    onDoubleClick={(event) => {
+                      event.stopPropagation();
+                      onRouteAdd(cable.id, snap(pointAt(event.clientX, event.clientY)));
+                    }}
+                  />
+                </g>
+              );
+            })}
+            {selectedCable === cable.id &&
+              cable.route.map((point, index) => (
+                <circle
+                  key={point.id}
+                  cx={drag?.id === `__route|${cable.id}|${index}` ? drag.point.x : point.x}
+                  cy={drag?.id === `__route|${cable.id}|${index}` ? drag.point.y : point.y}
+                  r="6"
+                  fill="#e2af40"
+                  stroke="#fff"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    setDrag({ id: `__route|${cable.id}|${index}`, offset: { x: 0, y: 0 }, point });
+                    svg.current?.setPointerCapture(event.pointerId);
+                  }}
+                />
+              ))}
+          </g>
+        ))}
+        {pending && (
+          <polyline
+            points={[endpointPosition(project, pending, detail, drag), ...route]
+              .map((point) => `${point.x},${point.y}`)
+              .join(" ")}
+            fill="none"
+            stroke="#df9b2b"
+            strokeWidth="3"
+            strokeDasharray="6 4"
+            pointerEvents="none"
+          />
+        )}
         {project.devices.map((instance) => {
           const model = getDevice(instance.modelId);
           const position = drag?.id === instance.id ? drag.point : instance.position;
+          const size = cardSize(model, detail);
           return (
             // biome-ignore lint/a11y/useSemanticElements: SVG device group supports keyboard selection.
             <g
               key={instance.id}
-              transform={`translate(${position.x} ${position.y}) rotate(${instance.rotation} 90 45)`}
+              transform={`translate(${position.x} ${position.y}) rotate(${instance.rotation} ${size.width / 2} ${size.height / 2})`}
               role="button"
               tabIndex={0}
               aria-label={`Устройство ${instance.name}`}
@@ -221,8 +315,8 @@ export function Workbench({
               }}
             >
               <rect
-                width={CARD_WIDTH}
-                height="90"
+                width={size.width}
+                height={size.height}
                 rx="10"
                 fill="white"
                 stroke={selected === instance.id ? "#206f76" : "#bccad5"}
@@ -230,14 +324,69 @@ export function Workbench({
               />
               <rect x="12" y="14" width="5" height="24" rx="2" fill="#206f76" />
               <text x="26" y="28" fontSize="12" fontWeight="700">
-                {instance.name.length > 22 ? `${instance.name.slice(0, 20)}…` : instance.name}
+                {instance.name.length > (detail ? 32 : 20)
+                  ? `${instance.name.slice(0, detail ? 30 : 18)}…`
+                  : instance.name}
               </text>
               <text x="14" y="52" fontSize="11" fill="#657786">
                 {model.kind === "access_module" ? `OSDP · адрес ${instance.settings.address}` : model.kind}
               </text>
-              <text x="14" y="74" fontSize="10" fill="#8795a3">
-                {model.id} · {instance.rotation}°
-              </text>
+              {detail ? (
+                model.terminals.map((terminal, index) => {
+                  const point = terminalPoint(model, index, detail);
+                  const right = index % 2 === 1;
+                  return (
+                    <g key={terminal.id}>
+                      <text
+                        x={right ? size.width - 10 : 10}
+                        y={point.y + 3}
+                        fontSize="9"
+                        textAnchor={right ? "end" : "start"}
+                        fill="#5f7383"
+                        pointerEvents="none"
+                      >
+                        {terminal.label} <tspan fill="#9caab3">{terminal.block}</tspan>
+                      </text>
+                      {/* biome-ignore lint/a11y/useSemanticElements: SVG terminal supports keyboard wiring. */}
+                      <circle
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Клемма ${instance.id}/${terminal.id}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r="5"
+                        fill={
+                          pending?.deviceId === instance.id && pending.terminalId === terminal.id
+                            ? "#e2af40"
+                            : "#3c8589"
+                        }
+                        stroke="white"
+                        strokeWidth="1.5"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onTerminal({ deviceId: instance.id, terminalId: terminal.id });
+                        }}
+                        onKeyDown={(event) => {
+                          event.stopPropagation();
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onTerminal({ deviceId: instance.id, terminalId: terminal.id });
+                          }
+                        }}
+                      >
+                        <title>
+                          {terminal.id}: {terminal.note ?? terminal.label}
+                        </title>
+                      </circle>
+                    </g>
+                  );
+                })
+              ) : (
+                <text x="14" y="74" fontSize="10" fill="#8795a3">
+                  {model.terminals.length} клемм · {instance.rotation}°
+                </text>
+              )}
             </g>
           );
         })}

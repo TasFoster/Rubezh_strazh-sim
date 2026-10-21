@@ -6,51 +6,210 @@
     "document": "Паспорт ПАСН.425728.008 ПС (приложение А — схема подключения)",
     "edition": "ред. 15"
   },
-  "supply": { "minVoltage": 9, "maxVoltage": 28, "maxCurrentA": 0.15 },
-  "dipAddress": { "min": 1, "max": 31 },
+  "supply": {
+    "minVoltage": 9,
+    "maxVoltage": 28,
+    "maxCurrentA": 0.15
+  },
+  "dipAddress": {
+    "min": 1,
+    "max": 31
+  },
   "blocks": [
-    { "id": "power", "label": "Питание" },
-    { "id": "reader1", "label": "READER 1" },
-    { "id": "reader2", "label": "READER 2" },
-    { "id": "inputs", "label": "Датчики точки прохода" },
-    { "id": "sens", "label": "SENS1 / SENS2" },
-    { "id": "relay_k1", "label": "Реле K1" },
-    { "id": "relay_k2", "label": "Реле K2" },
-    { "id": "rs485_1", "label": "RS-485-1 (OSDP)" },
-    { "id": "rs485_2", "label": "RS-485-2 (OSDP, резерв)" }
+    {
+      "id": "power",
+      "label": "Питание"
+    },
+    {
+      "id": "reader1",
+      "label": "READER 1"
+    },
+    {
+      "id": "reader2",
+      "label": "READER 2"
+    },
+    {
+      "id": "inputs",
+      "label": "Датчики точки прохода"
+    },
+    {
+      "id": "sens",
+      "label": "SENS1 / SENS2"
+    },
+    {
+      "id": "relay_k1",
+      "label": "Реле K1"
+    },
+    {
+      "id": "relay_k2",
+      "label": "Реле K2"
+    },
+    {
+      "id": "rs485_1",
+      "label": "RS-485-1 (OSDP)"
+    },
+    {
+      "id": "rs485_2",
+      "label": "RS-485-2 (OSDP, резерв)"
+    }
   ],
   "terminals": [
-    { "id": "power_u", "label": "+U", "block": "power", "kind": "power_in" },
-    { "id": "power_gnd", "label": "GND", "block": "power", "kind": "ground" },
-
-    { "id": "r1_beep", "label": "BEEP", "block": "reader1", "kind": "indicator_out" },
-    { "id": "r1_green", "label": "GREEN", "block": "reader1", "kind": "indicator_out" },
-    { "id": "r1_red", "label": "RED", "block": "reader1", "kind": "indicator_out" },
-    { "id": "r1_d1", "label": "D1/T", "block": "reader1", "kind": "wiegand_d1" },
-    { "id": "r1_d0", "label": "D0", "block": "reader1", "kind": "wiegand_d0" },
-    { "id": "r1_gnd", "label": "GND", "block": "reader1", "kind": "ground" },
-    { "id": "r1_u", "label": "U+", "block": "reader1", "kind": "power_out" },
-
-    { "id": "r2_beep", "label": "BEEP", "block": "reader2", "kind": "indicator_out" },
-    { "id": "r2_green", "label": "GREEN", "block": "reader2", "kind": "indicator_out" },
-    { "id": "r2_red", "label": "RED", "block": "reader2", "kind": "indicator_out" },
-    { "id": "r2_d1", "label": "D1/T", "block": "reader2", "kind": "wiegand_d1" },
-    { "id": "r2_d0", "label": "D0", "block": "reader2", "kind": "wiegand_d0" },
-    { "id": "r2_gnd", "label": "GND", "block": "reader2", "kind": "ground" },
-    { "id": "r2_u", "label": "U+", "block": "reader2", "kind": "power_out" },
-
-    { "id": "in_door1", "label": "DOOR1", "block": "inputs", "kind": "supervised_input" },
-    { "id": "in_exit1", "label": "EXIT1", "block": "inputs", "kind": "supervised_input" },
-    { "id": "in_gnd1", "label": "GND", "block": "inputs", "kind": "ground" },
-    { "id": "in_door2", "label": "DOOR2", "block": "inputs", "kind": "supervised_input" },
-    { "id": "in_exit2", "label": "EXIT2", "block": "inputs", "kind": "supervised_input" },
-    { "id": "in_gnd2", "label": "GND", "block": "inputs", "kind": "ground" },
-
-    { "id": "sens1_neg", "label": "SENS1 −", "block": "sens", "kind": "ground" },
-    { "id": "sens1_pos", "label": "SENS1 +", "block": "sens", "kind": "supervised_input" },
-    { "id": "sens2_neg", "label": "SENS2 −", "block": "sens", "kind": "ground" },
-    { "id": "sens2_pos", "label": "SENS2 +", "block": "sens", "kind": "supervised_input" },
-
+    {
+      "id": "power_u",
+      "label": "+U",
+      "block": "power",
+      "kind": "power_in"
+    },
+    {
+      "id": "power_gnd",
+      "label": "GND",
+      "block": "power",
+      "kind": "ground"
+    },
+    {
+      "id": "r1_beep",
+      "label": "BEEP",
+      "block": "reader1",
+      "kind": "indicator_out"
+    },
+    {
+      "id": "r1_green",
+      "label": "GREEN",
+      "block": "reader1",
+      "kind": "indicator_out"
+    },
+    {
+      "id": "r1_red",
+      "label": "RED",
+      "block": "reader1",
+      "kind": "indicator_out"
+    },
+    {
+      "id": "r1_d1",
+      "label": "D1/T",
+      "block": "reader1",
+      "kind": "wiegand_d1"
+    },
+    {
+      "id": "r1_d0",
+      "label": "D0",
+      "block": "reader1",
+      "kind": "wiegand_d0"
+    },
+    {
+      "id": "r1_gnd",
+      "label": "GND",
+      "block": "reader1",
+      "kind": "ground"
+    },
+    {
+      "id": "r1_u",
+      "label": "U+",
+      "block": "reader1",
+      "kind": "power_out"
+    },
+    {
+      "id": "r2_beep",
+      "label": "BEEP",
+      "block": "reader2",
+      "kind": "indicator_out"
+    },
+    {
+      "id": "r2_green",
+      "label": "GREEN",
+      "block": "reader2",
+      "kind": "indicator_out"
+    },
+    {
+      "id": "r2_red",
+      "label": "RED",
+      "block": "reader2",
+      "kind": "indicator_out"
+    },
+    {
+      "id": "r2_d1",
+      "label": "D1/T",
+      "block": "reader2",
+      "kind": "wiegand_d1"
+    },
+    {
+      "id": "r2_d0",
+      "label": "D0",
+      "block": "reader2",
+      "kind": "wiegand_d0"
+    },
+    {
+      "id": "r2_gnd",
+      "label": "GND",
+      "block": "reader2",
+      "kind": "ground"
+    },
+    {
+      "id": "r2_u",
+      "label": "U+",
+      "block": "reader2",
+      "kind": "power_out"
+    },
+    {
+      "id": "in_door1",
+      "label": "DOOR1",
+      "block": "inputs",
+      "kind": "supervised_input"
+    },
+    {
+      "id": "in_exit1",
+      "label": "EXIT1",
+      "block": "inputs",
+      "kind": "supervised_input"
+    },
+    {
+      "id": "in_gnd1",
+      "label": "GND",
+      "block": "inputs",
+      "kind": "ground"
+    },
+    {
+      "id": "in_door2",
+      "label": "DOOR2",
+      "block": "inputs",
+      "kind": "supervised_input"
+    },
+    {
+      "id": "in_exit2",
+      "label": "EXIT2",
+      "block": "inputs",
+      "kind": "supervised_input"
+    },
+    {
+      "id": "in_gnd2",
+      "label": "GND",
+      "block": "inputs",
+      "kind": "ground"
+    },
+    {
+      "id": "sens1_neg",
+      "label": "SENS1 −",
+      "block": "sens",
+      "kind": "ground"
+    },
+    {
+      "id": "sens1_pos",
+      "label": "SENS1 +",
+      "block": "sens",
+      "kind": "supervised_input"
+    },
+    {
+      "id": "sens2_neg",
+      "label": "SENS2 −",
+      "block": "sens",
+      "kind": "ground"
+    },
+    {
+      "id": "sens2_pos",
+      "label": "SENS2 +",
+      "block": "sens",
+      "kind": "supervised_input"
+    },
     {
       "id": "k1_nc",
       "label": "K1 NC",
@@ -58,8 +217,18 @@
       "kind": "relay_nc",
       "note": "На схеме паспорта контакты реле не подписаны; порядок NC–COM–NO определён по условному обозначению реле."
     },
-    { "id": "k1_com", "label": "K1 COM", "block": "relay_k1", "kind": "relay_com" },
-    { "id": "k1_no", "label": "K1 NO", "block": "relay_k1", "kind": "relay_no" },
+    {
+      "id": "k1_com",
+      "label": "K1 COM",
+      "block": "relay_k1",
+      "kind": "relay_com"
+    },
+    {
+      "id": "k1_no",
+      "label": "K1 NO",
+      "block": "relay_k1",
+      "kind": "relay_no"
+    },
     {
       "id": "k1_bridge_a",
       "label": "K1 доп. 1",
@@ -67,21 +236,78 @@
       "kind": "bridge",
       "note": "Дополнительная колодка: два соединённых между собой контакта для включения реле в разрыв обоих проводов питания замка."
     },
-    { "id": "k1_bridge_b", "label": "K1 доп. 2", "block": "relay_k1", "kind": "bridge" },
-
-    { "id": "k2_nc", "label": "K2 NC", "block": "relay_k2", "kind": "relay_nc" },
-    { "id": "k2_com", "label": "K2 COM", "block": "relay_k2", "kind": "relay_com" },
-    { "id": "k2_no", "label": "K2 NO", "block": "relay_k2", "kind": "relay_no" },
-    { "id": "k2_bridge_a", "label": "K2 доп. 1", "block": "relay_k2", "kind": "bridge" },
-    { "id": "k2_bridge_b", "label": "K2 доп. 2", "block": "relay_k2", "kind": "bridge" },
-
-    { "id": "rs1_pos", "label": "+D", "block": "rs485_1", "kind": "rs485_pos" },
-    { "id": "rs1_gnd", "label": "GND", "block": "rs485_1", "kind": "ground" },
-    { "id": "rs1_neg", "label": "−D", "block": "rs485_1", "kind": "rs485_neg" },
-
-    { "id": "rs2_pos", "label": "+D", "block": "rs485_2", "kind": "rs485_pos" },
-    { "id": "rs2_gnd", "label": "GND", "block": "rs485_2", "kind": "ground" },
-    { "id": "rs2_neg", "label": "−D", "block": "rs485_2", "kind": "rs485_neg" }
+    {
+      "id": "k1_bridge_b",
+      "label": "K1 доп. 2",
+      "block": "relay_k1",
+      "kind": "bridge"
+    },
+    {
+      "id": "k2_nc",
+      "label": "K2 NC",
+      "block": "relay_k2",
+      "kind": "relay_nc"
+    },
+    {
+      "id": "k2_com",
+      "label": "K2 COM",
+      "block": "relay_k2",
+      "kind": "relay_com"
+    },
+    {
+      "id": "k2_no",
+      "label": "K2 NO",
+      "block": "relay_k2",
+      "kind": "relay_no"
+    },
+    {
+      "id": "k2_bridge_a",
+      "label": "K2 доп. 1",
+      "block": "relay_k2",
+      "kind": "bridge"
+    },
+    {
+      "id": "k2_bridge_b",
+      "label": "K2 доп. 2",
+      "block": "relay_k2",
+      "kind": "bridge"
+    },
+    {
+      "id": "rs1_pos",
+      "label": "+D",
+      "block": "rs485_1",
+      "kind": "rs485_pos"
+    },
+    {
+      "id": "rs1_gnd",
+      "label": "GND",
+      "block": "rs485_1",
+      "kind": "ground"
+    },
+    {
+      "id": "rs1_neg",
+      "label": "−D",
+      "block": "rs485_1",
+      "kind": "rs485_neg"
+    },
+    {
+      "id": "rs2_pos",
+      "label": "+D",
+      "block": "rs485_2",
+      "kind": "rs485_pos"
+    },
+    {
+      "id": "rs2_gnd",
+      "label": "GND",
+      "block": "rs485_2",
+      "kind": "ground"
+    },
+    {
+      "id": "rs2_neg",
+      "label": "−D",
+      "block": "rs485_2",
+      "kind": "rs485_neg"
+    }
   ],
   "jumpers": [
     {
@@ -106,9 +332,106 @@
     }
   ],
   "leds": [
-    { "id": "power", "label": "POWER" },
-    { "id": "error", "label": "ERROR" },
-    { "id": "rs485_1", "label": "RS-485-1" },
-    { "id": "rs485_2", "label": "RS-485-2" }
-  ]
+    {
+      "id": "power",
+      "label": "POWER"
+    },
+    {
+      "id": "error",
+      "label": "ERROR"
+    },
+    {
+      "id": "rs485_1",
+      "label": "RS-485-1"
+    },
+    {
+      "id": "rs485_2",
+      "label": "RS-485-2"
+    }
+  ],
+  "electrical": {
+    "power": {
+      "positive": "power_u",
+      "negative": "power_gnd",
+      "currentA": 0.15
+    },
+    "links": [
+      ["power_u", "r1_u"],
+      ["power_u", "r2_u"],
+      ["power_gnd", "r1_gnd"],
+      ["power_gnd", "r2_gnd"],
+      ["power_gnd", "in_gnd1"],
+      ["power_gnd", "in_gnd2"],
+      ["power_gnd", "sens1_neg"],
+      ["power_gnd", "sens2_neg"],
+      ["k1_bridge_a", "k1_bridge_b"],
+      ["k2_bridge_a", "k2_bridge_b"]
+    ],
+    "buses": [
+      {
+        "id": "rs485_1",
+        "positive": "rs1_pos",
+        "negative": "rs1_neg",
+        "ground": "rs1_gnd"
+      },
+      {
+        "id": "rs485_2",
+        "positive": "rs2_pos",
+        "negative": "rs2_neg",
+        "ground": "rs2_gnd"
+      }
+    ],
+    "relays": [
+      {
+        "id": "k1",
+        "com": "k1_com",
+        "nc": "k1_nc",
+        "no": "k1_no"
+      },
+      {
+        "id": "k2",
+        "com": "k2_com",
+        "nc": "k2_nc",
+        "no": "k2_no"
+      }
+    ],
+    "readers": [
+      {
+        "id": "reader1",
+        "d0": "r1_d0",
+        "d1": "r1_d1",
+        "positive": "r1_u",
+        "ground": "r1_gnd"
+      },
+      {
+        "id": "reader2",
+        "d0": "r2_d0",
+        "d1": "r2_d1",
+        "positive": "r2_u",
+        "ground": "r2_gnd"
+      }
+    ],
+    "inputs": [
+      {
+        "id": "door1",
+        "signal": "in_door1",
+        "ground": "in_gnd1"
+      },
+      {
+        "id": "exit1",
+        "signal": "in_exit1",
+        "ground": "in_gnd1"
+      },
+      {
+        "id": "door2",
+        "signal": "in_door2",
+        "ground": "in_gnd2"
+      },
+      {
+        "id": "exit2",
+        "signal": "in_exit2",
+        "ground": "in_gnd2"
+      }
+    ]
+  }
 }
