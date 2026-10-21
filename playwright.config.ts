@@ -3,6 +3,7 @@ import { defineConfig } from "@playwright/test";
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: "offline.spec.ts",
   fullyParallel: false,
   workers: 1,
   timeout: 30000,

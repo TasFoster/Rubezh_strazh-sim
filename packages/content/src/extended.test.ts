@@ -65,3 +65,28 @@ it("OSDP-считыватель обнаруживается отдельно и
   ).toBe(2);
   expect(lockIsOpen(project, solveCircuit(project, devices, state), "lock")).toBe(true);
 });
+it("план не принимает потерянную точку и очищает привязку при её удалении", async () => {
+  const { createDoorProject } = await import("./example");
+  const { prunePlanBindings } = await import("@strazh-sim/core");
+  const project = createDoorProject(true);
+  const door = {
+    id: "plan_door",
+    floorId: "floor_1",
+    position: { x: 0, y: 0 },
+    width: 90,
+    rotation: 0,
+    controllerId: "controller",
+    pointId: "absent",
+  };
+  project.plan.doors.push(door);
+  expect(() => parseProject(project, devices)).toThrow(/точка двери/);
+  door.pointId = "door_1";
+  parseProject(project, devices);
+  const controller = project.devices.find((device) => device.id === "controller");
+  if (!controller?.controller) throw new Error("fixture");
+  controller.controller.points = [];
+  for (const card of controller.controller.cards) card.pointIds = [];
+  prunePlanBindings(project);
+  expect(door.pointId).toBeUndefined();
+  parseProject(project, devices);
+});

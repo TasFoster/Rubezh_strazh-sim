@@ -320,7 +320,18 @@ export function advanceSimulation(
       const key = pointKey(controller.id, point.id),
         input = pointInput(project, catalog, circuit, point, "door");
       if (input !== previous.inputStates[key]) {
-        event(controller.id, `door_${input}`, `Дверной вход: ${input}`, point.id);
+        event(
+          controller.id,
+          `door_${input}`,
+          {
+            closed: "Дверь закрыта",
+            open: "Дверь открыта",
+            short: "КЗ линии датчика",
+            broken: "Обрыв линии датчика",
+            invalid: "Некорректное состояние датчика",
+          }[input],
+          point.id,
+        );
         if (input === "open") {
           state.doorOpenedAt[key] = state.timeMs;
           state.heldReported[key] = false;

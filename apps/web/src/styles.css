@@ -850,3 +850,40 @@ h3 {
   padding-left: 10px;
   color: #7d6a38;
 }
+.help-dialog {
+  width: min(720px, calc(100vw - 40px));
+  max-height: 85dvh;
+  border: 1px solid #b6c8d1;
+  border-radius: 10px;
+  padding: 24px;
+  color: #243746;
+  box-shadow: 0 20px 80px #172e3e44;
+}
+.help-dialog::backdrop {
+  background: #172e3e66;
+}
+.help-dialog ol {
+  padding-left: 22px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.help-dialog li {
+  margin: 8px 0;
+}
+.help-dialog p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.help-dialog table {
+  width: 100%;
+  font-size: 12px;
+  line-height: 2;
+}
+.help-dialog h3 {
+  font-size: 14px;
+  margin-top: 24px;
+}
+.window-title {
+  cursor: move;
+  touch-action: none;
+}

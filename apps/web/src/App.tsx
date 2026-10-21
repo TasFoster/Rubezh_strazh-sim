@@ -21,7 +21,9 @@ import { useEffect, useRef, useState } from "react";
 import { CablePanel } from "./CablePanel";
 import { ControllerWindow } from "./ControllerWindow";
 import { DeviceSettings } from "./DeviceSettings";
+import { HelpDialog } from "./HelpDialog";
 import { LessonPanel } from "./LessonPanel";
+import { kindLabel } from "./labels";
 import { PlanObjectPanel, type PlanSelection } from "./PlanObjectPanel";
 import { PlanPanel } from "./PlanPanel";
 import { SimulationPanel } from "./SimulationPanel";
@@ -31,11 +33,17 @@ import { useSimulation } from "./useSimulation";
 import { Workbench } from "./Workbench";
 
 export function App() {
+  const [offlineReady, setOfflineReady] = useState(false);
+  useEffect(() => {
+    if (import.meta.env.PROD && "serviceWorker" in navigator)
+      void navigator.serviceWorker.ready.then(() => setOfflineReady(true));
+  }, []);
   const editor = useEditor();
   const { project, change, replace, undo, redo } = editor;
   const simulation = useSimulation(project);
   const [showSimulation, setShowSimulation] = useState(false);
   const [showLesson, setShowLesson] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [openControllers, setOpenControllers] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>();
   const [activeFloor, setActiveFloor] = useState("floor_1");
@@ -50,6 +58,7 @@ export function App() {
   const [pending, setPending] = useState<Endpoint>();
   const [route, setRoute] = useState<Position[]>([]);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
   const [grid, setGrid] = useState(true);
   const [calibrating, setCalibrating] = useState(false);
   const [marks, setMarks] = useState<Position[]>([]);
@@ -74,6 +83,8 @@ export function App() {
       ),
     );
     setSelected(id);
+    setSelectedPlan(undefined);
+    setSelectedCable(undefined);
   };
   const connect = (endpoint: Endpoint) => {
     if (!pending) {
@@ -215,6 +226,25 @@ export function App() {
         event.preventDefault();
         redo();
       }
+      if (event.key === "Delete" && selectedCable) {
+        change((draft) => {
+          draft.cables = draft.cables.filter((item) => item.id !== selectedCable);
+        });
+        setSelectedCable(undefined);
+      }
+      if (event.key === "Delete" && selectedPlan) {
+        change((draft) => {
+          if (selectedPlan.kind === "wall") {
+            draft.plan.walls = draft.plan.walls.filter((item) => item.id !== selectedPlan.id);
+            for (const door of draft.plan.doors) if (door.wallId === selectedPlan.id) delete door.wallId;
+          }
+          if (selectedPlan.kind === "door")
+            draft.plan.doors = draft.plan.doors.filter((item) => item.id !== selectedPlan.id);
+          if (selectedPlan.kind === "room")
+            draft.plan.rooms = draft.plan.rooms.filter((item) => item.id !== selectedPlan.id);
+        });
+        setSelectedPlan(undefined);
+      }
       if (event.key === "Delete" && selected) {
         replace(removeDevice(project, selected));
         setSelected(undefined);
@@ -231,7 +261,7 @@ export function App() {
     };
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [project, selected, replace, undo, redo]);
+  }, [project, selected, selectedCable, selectedPlan, change, replace, undo, redo]);
   const importFile = async (picked: File | undefined) => {
     if (!picked) return;
     try {
@@ -268,8 +298,20 @@ export function App() {
         <button type="button" onClick={() => file.current?.click()}>
           Открыть
         </button>
-        <button type="button" onClick={() => downloadProject(project)}>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              downloadProject(parseProject(project, devices));
+            } catch {
+              editor.setError("Экспорт невозможен: заполните обязательные названия и проверьте связи.");
+            }
+          }}
+        >
           Экспорт
+        </button>
+        <button type="button" onClick={() => setShowHelp(true)}>
+          Справка
         </button>
         <input
           ref={file}
@@ -329,6 +371,8 @@ export function App() {
           type="button"
           className="primary"
           onClick={() => {
+            setPlanTool("select");
+            setWallStart(undefined);
             simulation.toggle();
             setShowSimulation(true);
           }}
@@ -430,9 +474,24 @@ export function App() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
+          <select
+            aria-label="Категория оборудования"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          >
+            <option value="">Все категории</option>
+            {Object.entries(kindLabel).map(([kind, label]) => (
+              <option key={kind} value={kind}>
+                {label}
+              </option>
+            ))}
+          </select>
           <p className="muted">Перетащите на рабочее поле</p>
           {devices
-            .filter((device) => device.name.toLowerCase().includes(query.toLowerCase()))
+            .filter(
+              (device) =>
+                device.name.toLowerCase().includes(query.toLowerCase()) && (!category || device.kind === category),
+            )
             .map((device) => (
               <button
                 className="palette-item"
@@ -450,7 +509,7 @@ export function App() {
                 <span className="component-icon">▣</span>
                 <span>
                   {device.name}
-                  <small>{device.kind}</small>
+                  <small>{kindLabel[device.kind]}</small>
                 </span>
                 <span>＋</span>
               </button>
@@ -573,6 +632,7 @@ export function App() {
           onCable={(id) => {
             setSelectedCable(id);
             setSelected(undefined);
+            setSelectedPlan(undefined);
           }}
           onRouteMove={(id, index, point) =>
             change((draft) => {
@@ -620,7 +680,7 @@ export function App() {
             />
           ) : instance && model ? (
             <>
-              <span className="eyebrow">{model.kind}</span>
+              <span className="eyebrow">{kindLabel[model.kind]}</span>
               <h2>{instance.name}</h2>
               <label>
                 Название
@@ -731,6 +791,7 @@ export function App() {
       {showSimulation && (
         <SimulationPanel project={project} simulation={simulation} onClose={() => setShowSimulation(false)} />
       )}
+      {showHelp && <HelpDialog onClose={() => setShowHelp(false)} />}
       {showLesson && (
         <LessonPanel
           project={project}
@@ -769,7 +830,7 @@ export function App() {
       })}
       <footer className="statusbar">
         <span>Объект / {project.plan.floors.find((floor) => floor.id === floorId)?.name}</span>
-        <span>Локальный проект · Ctrl+Z — отмена · Ctrl+Shift+Z — повтор</span>
+        <span>{offlineReady ? "Офлайн готов · " : ""}Ctrl+Z — отмена · Ctrl+Shift+Z — повтор</span>
       </footer>
     </div>
   );

@@ -26,6 +26,7 @@ export {
   type Project,
   ProjectSchema,
   parseProject,
+  prunePlanBindings,
   removeDevice,
   serializeProject,
 } from "./project";

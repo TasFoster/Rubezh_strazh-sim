@@ -2,6 +2,7 @@ import { getDevice } from "@strazh-sim/content";
 import { backgroundFor, type Endpoint, type Position, type Project } from "@strazh-sim/core";
 import { useEffect, useRef, useState } from "react";
 import { cardSize, endpointPosition, terminalPoint } from "./geometry";
+import { kindLabel } from "./labels";
 import type { PlanSelection } from "./PlanObjectPanel";
 export type Camera = { x: number; y: number; zoom: number };
 type Props = {
@@ -94,7 +95,7 @@ export function Workbench({
     <div className="workspace">
       <div className="canvas-tools">
         <button type="button" onClick={() => zoomAt(1.25)} aria-label="Увеличить">
-          ＋
+          +
         </button>
         <span>{Math.round(camera.zoom * 100)}%</span>
         <button type="button" onClick={() => zoomAt(0.8)} aria-label="Уменьшить">
@@ -518,7 +519,7 @@ export function Workbench({
                     : instance.name}
                 </text>
                 <text x="14" y="52" fontSize="11" fill="#657786">
-                  {model.kind === "access_module" ? `OSDP · адрес ${instance.settings.address}` : model.kind}
+                  {model.kind === "access_module" ? `OSDP · адрес ${instance.settings.address}` : kindLabel[model.kind]}
                 </text>
                 {detail ? (
                   model.terminals.map((terminal, index) => {

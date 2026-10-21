@@ -75,3 +75,43 @@ describe("электрическая модель двери", () => {
     ).toBeUndefined();
   });
 });
+it("измеряет две оконечные нагрузки и отличает размыкание от обрыва", async () => {
+  const { InstanceSchema, classifyInput } = await import("@strazh-sim/core");
+  const project = createDoorProject();
+  project.cables = project.cables.filter(
+    (cable) => !cable.cores.some((core) => core.from.deviceId === "contact" || core.to.deviceId === "contact"),
+  );
+  for (const id of ["r1", "r2"])
+    project.devices.push(
+      InstanceSchema.parse({ id, modelId: "training_resistor", name: id, position: { x: 0, y: 0 } }),
+    );
+  const pairs = [
+    ["module", "in_door1", "r1", "a"],
+    ["r1", "b", "module", "in_gnd1"],
+    ["module", "in_door1", "contact", "a"],
+    ["contact", "b", "r2", "a"],
+    ["r2", "b", "module", "in_gnd1"],
+  ];
+  pairs.forEach(([a, ta, b, tb], index) => {
+    project.cables.push(
+      CableSchema.parse({
+        id: `sensor_${index}`,
+        name: "Датчик",
+        cores: [
+          { id: "one", color: "#000000", from: { deviceId: a, terminalId: ta }, to: { deviceId: b, terminalId: tb } },
+        ],
+      }),
+    );
+  });
+  const from = endpoint("module", "in_door1"),
+    to = endpoint("module", "in_gnd1");
+  expect(
+    classifyInput(solveCircuit(project, devices, { contacts: { contact: true } }).resistance(from, to), true),
+  ).toBe("closed");
+  expect(
+    classifyInput(solveCircuit(project, devices, { contacts: { contact: false } }).resistance(from, to), true),
+  ).toBe("open");
+  for (const cable of project.cables.filter((cable) => cable.id === "sensor_0" || cable.id === "sensor_2"))
+    for (const core of cable.cores) core.broken = true;
+  expect(classifyInput(solveCircuit(project, devices).resistance(from, to), true)).toBe("broken");
+});

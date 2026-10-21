@@ -12,3 +12,9 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+    console.warn("Офлайн-кэш недоступен в этом браузере");
+  });
+}

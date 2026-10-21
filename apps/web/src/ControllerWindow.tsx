@@ -7,8 +7,10 @@ import {
   lockIsOpen,
   type Project,
   parseProject,
+  prunePlanBindings,
 } from "@strazh-sim/core";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { linkLabel } from "./labels";
 import type { SimulationController } from "./useSimulation";
 
 type Props = {
@@ -32,6 +34,8 @@ const pages = [
   ["events", "Журнал событий"],
 ] as const;
 export function ControllerWindow({ project, controller, simulation: sim, change, onClose, onRaise, order }: Props) {
+  const [position, setPosition] = useState({ x: 120 + (order % 3) * 24, y: 125 + (order % 3) * 18 });
+  const drag = useRef<{ x: number; y: number; origin: { x: number; y: number } } | undefined>(undefined);
   const config = controller.controller ?? ControllerConfigSchema.parse({});
   const [page, setPage] = useState("system");
   const [message, setMessage] = useState("");
@@ -63,6 +67,7 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
     change((draft) => {
       const item = draft.devices.find((item) => item.id === controller.id);
       if (item?.controller) recipe(item.controller);
+      prunePlanBindings(draft);
     });
   const saveNetwork = () => {
     const result = ControllerConfigSchema.safeParse({ ...config, ...network });
@@ -131,10 +136,31 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
       className="controller-window"
       role="dialog"
       aria-label={`Веб-интерфейс ${controller.name}`}
-      style={{ zIndex: 30 + order, top: 125 + (order % 3) * 18, left: 120 + (order % 3) * 24 }}
+      style={{ zIndex: 30 + order, top: position.y, left: position.x }}
       onPointerDown={onRaise}
     >
-      <div className="window-title">
+      <div
+        className="window-title"
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest("button")) return;
+          drag.current = { x: event.clientX, y: event.clientY, origin: position };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const origin = drag.current;
+          if (origin)
+            setPosition({
+              x: Math.max(0, Math.min(window.innerWidth - 200, origin.origin.x + event.clientX - origin.x)),
+              y: Math.max(0, Math.min(window.innerHeight - 60, origin.origin.y + event.clientY - origin.y)),
+            });
+        }}
+        onPointerUp={() => {
+          drag.current = undefined;
+        }}
+        onPointerCancel={() => {
+          drag.current = undefined;
+        }}
+      >
         <span>Контроллер · {controller.name}</span>
         <span className="window-address">{config.ip}</span>
         <button type="button" aria-label={`Закрыть интерфейс ${controller.name}`} onClick={onClose}>
@@ -367,7 +393,7 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
                         <td>{project.devices.find((device) => device.id === link.moduleId)?.name}</td>
                         <td>{link.address}</td>
                         <td>{link.line}</td>
-                        <td>{link.status}</td>
+                        <td>{linkLabel[link.status]}</td>
                         <td>
                           <button
                             type="button"

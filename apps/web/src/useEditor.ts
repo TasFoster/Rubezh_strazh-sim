@@ -1,4 +1,5 @@
-import { createProject, type Project } from "@strazh-sim/core";
+import { devices } from "@strazh-sim/content";
+import { createProject, type Project, parseProject } from "@strazh-sim/core";
 import { useCallback, useEffect, useState } from "react";
 import { loadProject, saveProject } from "./storage";
 
@@ -15,7 +16,12 @@ export function useEditor() {
       };
     }
   });
-  const [error, setError] = useState(initial.error);
+  const [error, setManualError] = useState(initial.error);
+  const [saveError, setSaveError] = useState("");
+  const setError = useCallback((message: string) => {
+    setManualError(message);
+    setSaveError("");
+  }, []);
   const [saveBlocked, setSaveBlocked] = useState(Boolean(initial.error));
   const [saved, setSaved] = useState(false);
   const [history, setHistory] = useState<History>({ past: [], present: initial.project, future: [] });
@@ -56,10 +62,17 @@ export function useEditor() {
     if (saveBlocked) return;
     const timeout = window.setTimeout(() => {
       try {
+        parseProject(history.present, devices);
+      } catch {
+        setSaveError("Проект не сохранён: проверьте обязательные названия и связи. Предыдущее сохранение не изменено.");
+        return;
+      }
+      try {
         saveProject(history.present);
         setSaved(true);
+        setSaveError("");
       } catch {
-        setError("Автосохранение не выполнено: хранилище недоступно или заполнено. Экспортируйте проект.");
+        setSaveError("Автосохранение не выполнено: хранилище недоступно или заполнено. Экспортируйте проект.");
       }
     }, 350);
     return () => window.clearTimeout(timeout);
@@ -72,7 +85,7 @@ export function useEditor() {
     redo,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
-    error,
+    error: error || saveError,
     setError,
     saved,
   };

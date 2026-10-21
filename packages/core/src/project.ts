@@ -5,7 +5,8 @@ const id = z
   .string()
   .min(1)
   .max(120)
-  .regex(/^[a-zA-Z0-9_-]+$/);
+  .regex(/^[a-zA-Z0-9_-]+$/)
+  .refine((value) => !Object.hasOwn(Object.prototype, value), "Зарезервированный ID");
 const finite = z.number().finite();
 export const PositionSchema = z.object({ x: finite, y: finite });
 export type Position = z.infer<typeof PositionSchema>;
@@ -245,6 +246,19 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
         }
     }
   }
+  for (const [floorId, background] of Object.entries(project.plan.backgrounds)) {
+    if (!floors.has(floorId) || background.floorId !== floorId)
+      errors.push(`Некорректный этаж фонового плана: ${floorId}`);
+  }
+  for (const door of project.plan.doors) {
+    if (door.wallId && !project.plan.walls.some((wall) => wall.id === door.wallId && wall.floorId === door.floorId))
+      errors.push(`Неизвестная стена двери: ${door.wallId}`);
+    if (door.pointId || door.controllerId) {
+      const controller = instances.get(door.controllerId ?? "");
+      if (!controller?.controller?.points.some((point) => point.id === door.pointId))
+        errors.push(`Неизвестная точка двери: ${door.pointId}`);
+    }
+  }
   for (const cable of project.cables) {
     unique(cable.cores, "жилы");
     unique(cable.route, "узла маршрута");
@@ -301,4 +315,20 @@ export function removeDevice(project: Project, id: string): Project {
 /** Проект состоит исключительно из JSON-данных; работает без API браузера. */
 export function cloneProject(project: Project): Project {
   return JSON.parse(JSON.stringify(project)) as Project;
+}
+
+/** После удаления точки её изображение на плане остаётся свободной дверью. */
+export function prunePlanBindings(project: Project): void {
+  for (const door of project.plan.doors) {
+    if (
+      (door.pointId || door.controllerId) &&
+      !project.devices.some(
+        (device) =>
+          device.id === door.controllerId && device.controller?.points.some((point) => point.id === door.pointId),
+      )
+    ) {
+      delete door.pointId;
+      delete door.controllerId;
+    }
+  }
 }

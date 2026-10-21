@@ -1,6 +1,7 @@
 import { getDevice } from "@strazh-sim/content";
 import { lockIsOpen, type Project } from "@strazh-sim/core";
 import { useState } from "react";
+import { linkLabel } from "./labels";
 import type { SimulationController } from "./useSimulation";
 
 type Props = { project: Project; simulation: SimulationController; onClose: () => void };
@@ -188,7 +189,7 @@ export function SimulationPanel({ project, simulation: sim, onClose }: Props) {
                   .filter((link) => link.status !== "online")
                   .map((link) => (
                     <p key={`${link.controllerId}/${link.moduleId}/${link.line}`}>
-                      OSDP {link.address}: {link.status}
+                      OSDP {link.address}: {linkLabel[link.status]}
                     </p>
                   ))}
                 {!sim.circuit.diagnostics.length && sim.links.every((link) => link.status === "online") && (

@@ -51,7 +51,7 @@ test("пусконаладка одной двери через интерфей
   await expect(page.getByText("Замок отпущен", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Открыть дверь", exact: true }).click();
   await page.getByRole("button", { name: "Журнал", exact: true }).click();
-  await expect(page.getByText("Дверной вход: open", { exact: true })).toBeVisible();
+  await expect(page.getByText("Дверь открыта", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Мультиметр", exact: true }).click();
   await page.getByLabel("Красный щуп").selectOption(JSON.stringify({ deviceId: "psu", terminalId: "pos" }));
   await page.getByLabel("Чёрный щуп").selectOption(JSON.stringify({ deviceId: "psu", terminalId: "neg" }));
@@ -67,4 +67,86 @@ test("повреждённый импорт не заменяет текущий
     .setInputFiles({ name: "broken.json", mimeType: "application/json", buffer: Buffer.from('{"version":999}') });
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.getByLabel("Название проекта", { exact: true })).toHaveValue("Стенд · одна дверь");
+});
+
+test("редактор сохраняет план, калибровку, геометрию и этажи", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('input[type=file][accept="image/png,image/jpeg"]').setInputFiles({
+    name: "plan.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(page.locator("svg image")).toHaveCount(1);
+  const canvas = page.locator("svg.workbench");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("canvas");
+  await page.getByRole("button", { name: "Выбрать две точки", exact: true }).click();
+  await page.mouse.click(box.x + 100, box.y + 100);
+  await page.mouse.click(box.x + 300, box.y + 100);
+  await page.getByRole("button", { name: "Применить масштаб", exact: true }).click();
+  await page.getByLabel("Инструмент плана").selectOption("wall");
+  await page.mouse.click(box.x + 100, box.y + 180);
+  await page.mouse.click(box.x + 400, box.y + 180);
+  await page.getByLabel("Инструмент плана").selectOption("door");
+  await page.mouse.click(box.x + 200, box.y + 180);
+  await page.getByLabel("Инструмент плана").selectOption("room");
+  await page.mouse.click(box.x + 100, box.y + 280);
+  await page.getByLabel("Название помещения", { exact: true }).fill("Пост охраны");
+  await page.getByRole("button", { name: "Добавить этаж", exact: true }).click();
+  await page.getByRole("button", { name: /Блок питания DC/ }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("strazh-sim.project.v1") ?? "{}").plan?.floors?.length),
+    )
+    .toBe(2);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("strazh-sim.project.v1") ?? "{}"));
+  expect(stored.plan.metersPerUnit).toBe(0.05);
+  expect(stored.plan.walls).toHaveLength(1);
+  expect(stored.plan.doors).toHaveLength(1);
+  expect(stored.plan.rooms[0].name).toBe("Пост охраны");
+  expect(stored.devices[0].floorId).not.toBe("floor_1");
+});
+
+test("невалидное редактирование не перезаписывает сохранённый проект", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Готовый пример", exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("strazh-sim.project.v1") ?? "{}").name))
+    .toBe("Стенд · одна дверь");
+  await page.getByLabel("Название проекта", { exact: true }).fill("");
+  await expect(page.getByRole("alert")).toContainText("Проект не сохранён");
+  await page.reload();
+  await expect(page.getByLabel("Название проекта", { exact: true })).toHaveValue("Стенд · одна дверь");
+});
+
+test("повреждённое автосохранение остаётся доступным для восстановления", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("strazh-sim.project.v1", '{"version":999}'));
+  await page.reload();
+  await expect(page.getByRole("alert")).toContainText("Сохранённый проект повреждён");
+  await page.waitForTimeout(500); // Перекрывает интервал автосохранения и проверяет отсутствие перезаписи.
+  expect(await page.evaluate(() => localStorage.getItem("strazh-sim.project.v1"))).toBe('{"version":999}');
+});
+
+test("турникет: задание оценивает полный проход и экспортирует отчёт", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Задания", exact: true }).click();
+  const lesson = page.getByRole("region", { name: "Учебное задание" });
+  await lesson.getByLabel("Выберите задание").selectOption("turnstile");
+  await lesson.getByRole("button", { name: "Начать задание", exact: true }).click();
+  await lesson.getByRole("button", { name: "Скрыть", exact: true }).click();
+  await page.getByRole("button", { name: "Запустить", exact: true }).click();
+  await page.getByRole("button", { name: "Приложить карту", exact: true }).click();
+  await page.getByRole("button", { name: "Начать проход", exact: true }).click();
+  await page.getByRole("button", { name: "Завершить проход", exact: true }).click();
+  await page.getByRole("button", { name: "Нажать кнопку", exact: true }).click();
+  await page.getByRole("button", { name: "Отпустить кнопку", exact: true }).click();
+  await page.getByRole("button", { name: "Задания", exact: true }).click();
+  await expect(lesson.getByText("Все условия выполнены", { exact: true })).toBeVisible({ timeout: 10000 });
+  const download = page.waitForEvent("download");
+  await lesson.getByRole("button", { name: "Скачать отчёт", exact: true }).click();
+  expect((await download).suggestedFilename()).toBe("strazh-training-report.json");
 });

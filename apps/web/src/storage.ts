@@ -7,7 +7,7 @@ export function loadProject(): Project | undefined {
   return saved ? parseProject(JSON.parse(saved), devices) : undefined;
 }
 export function saveProject(project: Project): void {
-  localStorage.setItem(KEY, serializeProject(project));
+  localStorage.setItem(KEY, serializeProject(parseProject(project, devices)));
 }
 export function downloadProject(project: Project): void {
   const url = URL.createObjectURL(new Blob([serializeProject(project)], { type: "application/json" }));
