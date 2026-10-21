@@ -205,3 +205,43 @@ export function createTwoControllersProject(): Project {
   }
   return project;
 }
+
+export function createOsdpReaderProject(): Project {
+  const project = createDoorProject(true);
+  project.id = "osdp_reader";
+  project.name = "Дверь со считывателем OSDP";
+  const reader = project.devices.find((device) => device.id === "reader");
+  if (reader) {
+    reader.modelId = "training_osdp_reader";
+    reader.name = "Считыватель OSDP · вход";
+    reader.settings.address = 2;
+  }
+  project.devices.find((device) => device.id === "controller")?.controller?.modules.push("reader");
+  project.cables = project.cables.filter(
+    (cable) => !cable.cores.some((core) => core.from.deviceId === "reader" || core.to.deviceId === "reader"),
+  );
+  const pairs = [
+    ["psu", "pos", "reader", "pos"],
+    ["psu", "neg", "reader", "neg"],
+    ["controller", "rs1_pos", "reader", "rs_pos"],
+    ["controller", "rs1_neg", "reader", "rs_neg"],
+    ["controller", "rs1_gnd", "reader", "rs_gnd"],
+  ];
+  pairs.forEach(([a, ta, b, tb], index) => {
+    project.cables.push(
+      CableSchema.parse({
+        id: `osdp_reader_${index}`,
+        name: `OSDP-считыватель ${index + 1}`,
+        cores: [
+          {
+            id: "core_1",
+            color: "#347b84",
+            from: { deviceId: a, terminalId: ta },
+            to: { deviceId: b, terminalId: tb },
+          },
+        ],
+      }),
+    );
+  });
+  return project;
+}

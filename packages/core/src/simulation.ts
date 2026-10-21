@@ -68,10 +68,14 @@ export function discoverModules(
     (device) => models.get(device.modelId)?.kind === "controller" && circuit.powered[device.id],
   )) {
     for (const module of project.devices.filter(
-      (device) => models.get(device.modelId)?.kind === "access_module" && circuit.powered[device.id],
+      (device) =>
+        ["access_module", "reader"].includes(models.get(device.modelId)?.kind ?? "") &&
+        Boolean(models.get(device.modelId)?.electrical?.buses.length) &&
+        circuit.powered[device.id],
     )) {
       const model = models.get(module.modelId),
         address = addresses[module.id] ?? module.settings.address;
+      const range = model?.dipAddress ?? model?.osdpAddress;
       for (const line of models.get(controller.modelId)?.electrical?.buses ?? []) {
         const connected = model?.electrical?.buses.some(
           (bus) =>
@@ -89,7 +93,7 @@ export function discoverModules(
             status:
               controller.controller?.lines.find((item) => item.id === line.id)?.baudRate !== module.settings.baudRate
                 ? "baud_mismatch"
-                : model?.dipAddress && address >= model.dipAddress.min && address <= model.dipAddress.max
+                : range && address >= range.min && address <= range.max
                   ? "online"
                   : "invalid_address",
           });
@@ -155,13 +159,24 @@ function readerReady(
   catalog: readonly DeviceSpec[],
   circuit: CircuitResult,
   point: AccessPoint,
-  exit = false,
+  exit: boolean,
+  controller: DeviceInstance,
+  links: Link[],
 ): boolean {
   const module = project.devices.find((device) => device.id === point.moduleId),
     reader = project.devices.find((device) => device.id === (exit ? point.exitReaderId : point.readerId));
   const port = catalog
     .find((model) => model.id === module?.modelId)
     ?.electrical?.readers.find((port) => port.id === `reader${exit ? (point.relay === 1 ? 2 : 1) : point.relay}`);
+  const readerSpec = catalog.find((model) => model.id === reader?.modelId);
+  if (reader && readerSpec?.electrical?.buses.length)
+    return Boolean(
+      circuit.powered[reader.id] &&
+        controller.controller?.modules.includes(reader.id) &&
+        links.some(
+          (link) => link.moduleId === reader.id && link.controllerId === controller.id && link.status === "online",
+        ),
+    );
   const readerPort = catalog.find((model) => model.id === reader?.modelId)?.electrical?.readers[0];
   return Boolean(
     module &&
@@ -249,7 +264,7 @@ export function advanceSimulation(
     if (action.type === "unlock") unlock(controller, point, "оператор");
     else {
       const card = controller.controller?.cards.find((card) => card.id === action.cardId);
-      if (!readerReady(project, catalog, circuit, point, action.direction === "exit"))
+      if (!readerReady(project, catalog, circuit, point, action.direction === "exit", controller, links))
         event(controller.id, "reader_offline", "Считыватель не подключён или без питания", point.id);
       else if (!card?.enabled || !card.pointIds.includes(point.id))
         event(controller.id, "denied", `Доступ запрещён: карта ${action.cardId}`, point.id);

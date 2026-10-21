@@ -1,5 +1,6 @@
 import {
   createDoorProject,
+  createOsdpReaderProject,
   createScenarioProject,
   createTwoControllersProject,
   devices,
@@ -489,6 +490,19 @@ export function App() {
           >
             Два контроллера
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              simulation.stop();
+              replace(createOsdpReaderProject());
+              setSelected(undefined);
+              setSelectedCable(undefined);
+              setSelectedPlan(undefined);
+              setOpenControllers([]);
+            }}
+          >
+            Пример OSDP-считывателя
+          </button>
           <div className="palette-footer">
             Свободный монтаж
             <br />
@@ -659,7 +673,7 @@ export function App() {
                   {simulation.circuit.voltages[instance.id]?.toFixed(2) ?? "—"} В
                 </p>
               )}
-              {model.kind === "access_module" && (
+              {model.electrical && model.electrical.buses.length > 0 && (
                 <button
                   type="button"
                   disabled={simulation.status !== "running"}

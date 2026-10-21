@@ -78,6 +78,7 @@ export const DeviceSpecSchema = z
         contact: z.object({ a: idSchema, b: idSchema, normallyClosed: z.boolean() }).optional(),
       })
       .optional(),
+    osdpAddress: z.object({ min: z.number().int().positive(), max: z.number().int().positive() }).optional(),
     dipAddress: z
       .object({
         min: z.number().int().nonnegative(),
@@ -99,6 +100,8 @@ export const DeviceSpecSchema = z
     if (device.supply.minVoltage > device.supply.maxVoltage) {
       ctx.addIssue({ code: "custom", path: ["supply"], message: "minVoltage больше maxVoltage" });
     }
+    if (device.osdpAddress && device.osdpAddress.min > device.osdpAddress.max)
+      ctx.addIssue({ code: "custom", path: ["osdpAddress"], message: "min больше max" });
     if (device.dipAddress && device.dipAddress.min > device.dipAddress.max) {
       ctx.addIssue({ code: "custom", path: ["dipAddress"], message: "min больше max" });
     }

@@ -27,6 +27,7 @@ export function getDevice(id: string): DeviceSpec {
 export {
   createBidirectionalProject,
   createDoorProject,
+  createOsdpReaderProject,
   createTurnstileProject,
   createTwoControllersProject,
 } from "./example";

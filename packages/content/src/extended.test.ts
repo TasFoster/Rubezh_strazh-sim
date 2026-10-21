@@ -51,3 +51,17 @@ it("контроллеры независимы по линиям, картам,
     "a_controller",
   ]);
 });
+it("OSDP-считыватель обнаруживается отдельно и передаёт карту через свою линию", async () => {
+  const { createOsdpReaderProject } = await import("./example");
+  const project = createOsdpReaderProject();
+  parseProject(project, devices);
+  const state = advanceSimulation(project, devices, createSimulation(project), 0, [
+    { type: "card", controllerId: "controller", pointId: "door_1", cardId: "1001" },
+  ]);
+  expect(
+    discoverModules(project, devices, solveCircuit(project, devices, state), state.addresses).filter(
+      (link) => link.status === "online",
+    ).length,
+  ).toBe(2);
+  expect(lockIsOpen(project, solveCircuit(project, devices, state), "lock")).toBe(true);
+});

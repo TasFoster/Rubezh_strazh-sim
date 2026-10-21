@@ -336,5 +336,76 @@
         }
       ]
     }
+  },
+  {
+    "id": "training_osdp_reader",
+    "name": "Считыватель OSDP (учебный)",
+    "kind": "reader",
+    "source": {
+      "document": "Учебная модель: адресное устройство OSDP на отдельном питании",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 0.08
+    },
+    "osdpAddress": {
+      "min": 1,
+      "max": 30
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Питание и RS-485"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "pos",
+        "label": "+U",
+        "kind": "power_in",
+        "block": "main"
+      },
+      {
+        "id": "neg",
+        "label": "GND питания",
+        "kind": "ground",
+        "block": "main"
+      },
+      {
+        "id": "rs_pos",
+        "label": "+D",
+        "kind": "rs485_pos",
+        "block": "main"
+      },
+      {
+        "id": "rs_neg",
+        "label": "−D",
+        "kind": "rs485_neg",
+        "block": "main"
+      },
+      {
+        "id": "rs_gnd",
+        "label": "GND линии",
+        "kind": "ground",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "power": {
+        "positive": "pos",
+        "negative": "neg",
+        "currentA": 0.08
+      },
+      "buses": [
+        {
+          "id": "rs485",
+          "positive": "rs_pos",
+          "negative": "rs_neg",
+          "ground": "rs_gnd"
+        }
+      ]
+    }
   }
 ]

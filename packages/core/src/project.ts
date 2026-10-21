@@ -222,7 +222,12 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
       unique(config.points, "точки доступа");
       unique(config.cards, "карты");
       if (new Set(config.modules).size !== config.modules.length) errors.push("Повторный модуль контроллера");
-      for (const moduleId of config.modules) checkKind(moduleId, "access_module");
+      for (const moduleId of config.modules) {
+        const instance = instances.get(moduleId),
+          spec = models.get(instance?.modelId ?? "");
+        if (!instance || !spec?.electrical?.buses.length || !["access_module", "reader"].includes(spec.kind))
+          errors.push(`Неверное OSDP-устройство: ${moduleId}`);
+      }
       for (const point of config.points) {
         checkKind(point.moduleId, "access_module");
         checkKind(point.readerId, "reader");

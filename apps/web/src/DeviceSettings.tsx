@@ -132,6 +132,33 @@ export function DeviceSettings({ instance, model, onChange }: Props) {
           ))}
         </details>
       )}
+      {model.osdpAddress && (
+        <label>
+          Адрес OSDP
+          <input
+            type="number"
+            min={model.osdpAddress.min}
+            max={model.osdpAddress.max}
+            value={settings.address}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (Number.isInteger(value) && value >= 0 && value <= 127) onChange({ address: value });
+            }}
+          />
+        </label>
+      )}
+      {model.electrical && model.electrical.buses.length > 0 && (
+        <label>
+          Скорость OSDP
+          <select value={settings.baudRate} onChange={(event) => onChange({ baudRate: Number(event.target.value) })}>
+            {[9600, 19200, 38400, 57600, 115200].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {model.jumpers.length > 0 && (
         <>
           <h3>Перемычки</h3>
