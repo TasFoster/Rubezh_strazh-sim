@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { menuAction } from "./helpers";
 
 test("монтаж жилы, отмена и восстановление проекта", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Блок питания DC/ }).click();
   await page.getByRole("button", { name: /Электрозамок/ }).click();
-  await page.getByRole("button", { name: "Монтаж / клеммы", exact: true }).click();
+  await page.getByLabel("Режим редактора").selectOption("wiring");
   const ends = page.locator('circle[aria-label$="/pos"]');
   await ends.nth(0).click();
   await ends.nth(1).click();
@@ -23,7 +24,7 @@ test("монтаж жилы, отмена и восстановление про
   await page.getByRole("button", { name: /Устройство Электрозамок/ }).click();
   await page.getByRole("button", { name: "Копия", exact: true }).click();
   await expect(page.locator('svg g[aria-label^="Устройство "]')).toHaveCount(3);
-  await page.getByRole("button", { name: "↶ Отменить", exact: true }).click();
+  await page.getByRole("button", { name: "Отменить", exact: true }).click();
   await expect(page.locator('svg g[aria-label^="Устройство "]')).toHaveCount(2);
 });
 
@@ -31,7 +32,7 @@ test("пусконаладка одной двери через интерфей
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await page.getByRole("button", { name: "Стенд одной двери", exact: true }).click();
+  await menuAction(page, "Проект", "Стенд одной двери");
   await page.getByRole("button", { name: "Запустить", exact: true }).click();
   await page.getByRole("button", { name: "Устройство STR20-IP · пост охраны", exact: true }).click();
   await page.getByRole("button", { name: "Открыть веб-интерфейс", exact: true }).click();
@@ -61,7 +62,7 @@ test("пусконаладка одной двери через интерфей
 
 test("повреждённый импорт не заменяет текущий объект", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Готовый пример", exact: true }).click();
+  await menuAction(page, "Проект", "Готовый пример");
   await page
     .locator('input[type=file][accept="application/json,.json"]')
     .setInputFiles({ name: "broken.json", mimeType: "application/json", buffer: Buffer.from('{"version":999}') });
@@ -95,7 +96,7 @@ test("редактор сохраняет план, калибровку, гео
   await page.getByLabel("Инструмент плана").selectOption("room");
   await page.mouse.click(box.x + 100, box.y + 280);
   await page.getByLabel("Название помещения", { exact: true }).fill("Пост охраны");
-  await page.getByRole("button", { name: "Добавить этаж", exact: true }).click();
+  await menuAction(page, "Вид", "Добавить этаж");
   await page.getByRole("button", { name: /Блок питания DC/ }).click();
   await expect
     .poll(() =>
@@ -112,7 +113,7 @@ test("редактор сохраняет план, калибровку, гео
 
 test("невалидное редактирование не перезаписывает сохранённый проект", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Готовый пример", exact: true }).click();
+  await menuAction(page, "Проект", "Готовый пример");
   await expect
     .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("strazh-sim.project.v1") ?? "{}").name))
     .toBe("Стенд · одна дверь");
@@ -133,7 +134,7 @@ test("повреждённое автосохранение остаётся д�
 
 test("турникет: задание оценивает полный проход и экспортирует отчёт", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Задания", exact: true }).click();
+  await menuAction(page, "Помощь", "Задания");
   const lesson = page.getByRole("region", { name: "Учебное задание" });
   await lesson.getByLabel("Выберите задание").selectOption("turnstile");
   await lesson.getByRole("button", { name: "Начать задание", exact: true }).click();
@@ -144,7 +145,7 @@ test("турникет: задание оценивает полный прох�
   await page.getByRole("button", { name: "Завершить проход", exact: true }).click();
   await page.getByRole("button", { name: "Нажать кнопку", exact: true }).click();
   await page.getByRole("button", { name: "Отпустить кнопку", exact: true }).click();
-  await page.getByRole("button", { name: "Задания", exact: true }).click();
+  await menuAction(page, "Помощь", "Задания");
   await expect(lesson.getByText("Все условия выполнены", { exact: true })).toBeVisible({ timeout: 10000 });
   const download = page.waitForEvent("download");
   await lesson.getByRole("button", { name: "Скачать отчёт", exact: true }).click();

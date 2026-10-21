@@ -1,0 +1,87 @@
+import { expect, test } from "@playwright/test";
+import { menuAction } from "./helpers";
+
+test("компактная панель и меню доступны с клавиатуры", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  await page.goto("/");
+  await expect(page.locator(".topbar button,.toolbar button")).toHaveCount(7);
+  await menuAction(page, "Проект", "Готовый пример");
+  const device = page.getByRole("button", { name: "Устройство STR20-IP · пост охраны", exact: true });
+  await device.click();
+  const trigger = page.getByRole("button", { name: "Проект", exact: true });
+  await trigger.focus();
+  await trigger.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Новый объект", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Открыть", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(device).toHaveAttribute("aria-pressed", "true");
+  await menuAction(page, "Помощь", "Справка");
+  await expect(page.getByRole("dialog", { name: "Справка симулятора" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("карточки раздвигаются при перетаскивании, провода перестраиваются и отменяются", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  await page.goto("/");
+  await menuAction(page, "Проект", "Готовый пример");
+  await page.getByLabel("Режим редактора").selectOption("wiring");
+  await page.getByRole("button", { name: "Весь объект", exact: true }).click();
+  const wires = page.locator("polyline[data-core-id]");
+  await expect(wires).toHaveCount(18);
+  const before = await wires.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("points")));
+  const reader = page.getByRole("button", { name: "Устройство Считыватель · вход", exact: true });
+  const module = page.getByRole("button", { name: "Устройство STR-1AP · дверь 1", exact: true });
+  const source = await reader.locator("rect").first().boundingBox(),
+    target = await module.locator("rect").first().boundingBox();
+  if (!source || !target) throw new Error("Карточки не видны");
+  await page.mouse.move(source.x + source.width / 2, source.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + 25, { steps: 5 });
+  await page.mouse.up();
+  const moved = await reader.locator("rect").first().boundingBox();
+  if (!moved) throw new Error("Карточка потеряна");
+  expect(
+    moved.x + moved.width <= target.x ||
+      moved.x >= target.x + target.width ||
+      moved.y + moved.height <= target.y ||
+      moved.y >= target.y + target.height,
+  ).toBe(true);
+  await expect(page.locator("polyline[data-route-warning]")).toHaveCount(0);
+  const after = await wires.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("points")));
+  expect(after).not.toEqual(before);
+  await page.getByRole("button", { name: "Отменить", exact: true }).click();
+  await expect
+    .poll(() => wires.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("points"))))
+    .toEqual(before);
+  await page.getByRole("button", { name: "Запустить", exact: true }).click();
+  await page.getByRole("button", { name: "Приложить карту", exact: true }).click();
+  await expect(page.getByText("Замок отпущен", { exact: false })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("смена этажа отменяет незавершённый провод, Delete в окне не удаляет устройство", async ({ page }) => {
+  await page.goto("/");
+  await menuAction(page, "Проект", "Готовый пример");
+  await page.getByLabel("Режим редактора").selectOption("wiring");
+  await page.getByRole("button", { name: "Клемма psu/pos", exact: true }).click();
+  await expect(page.getByText("Выберите вторую клемму · Esc — отмена", { exact: true })).toBeVisible();
+  await menuAction(page, "Вид", "Добавить этаж");
+  await expect(page.getByText("Выберите вторую клемму · Esc — отмена", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Этаж", { exact: true }).selectOption("floor_1");
+  await menuAction(page, "Симуляция", "STR20-IP · пост охраны");
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Сеть", exact: true }).focus();
+  await page.keyboard.press("Delete");
+  await expect(page.locator('svg g[aria-label^="Устройство "]')).toHaveCount(7);
+});

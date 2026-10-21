@@ -14,13 +14,23 @@ import {
   InstanceSchema,
   lockIsOpen,
   type Position,
+  type Project,
   parseProject,
   removeDevice,
 } from "@strazh-sim/core";
 import { useEffect, useRef, useState } from "react";
+import { ActionMenu } from "./ActionMenu";
 import { CablePanel } from "./CablePanel";
 import { ControllerWindow } from "./ControllerWindow";
 import { DeviceSettings } from "./DeviceSettings";
+import {
+  arrangeDevices,
+  automaticCable,
+  closestSegmentIndex,
+  endpointPosition,
+  freeDevicePosition,
+  routeCables,
+} from "./geometry";
 import { HelpDialog } from "./HelpDialog";
 import { LessonPanel } from "./LessonPanel";
 import { kindLabel } from "./labels";
@@ -60,28 +70,102 @@ export function App() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [grid, setGrid] = useState(true);
+  const [avoidCollisions, setAvoidCollisions] = useState(true);
+  const [fitRequest, setFitRequest] = useState(0);
   const [calibrating, setCalibrating] = useState(false);
   const [marks, setMarks] = useState<Position[]>([]);
   const file = useRef<HTMLInputElement>(null);
+  const initialLayout = useRef(false);
+  useEffect(() => {
+    if (initialLayout.current) return;
+    initialLayout.current = true;
+    if (avoidCollisions)
+      change((draft) => {
+        for (const floor of draft.plan.floors) arrangeDevices(draft, detail, floor.id);
+      });
+  }, [avoidCollisions, detail, change]);
   const instance = project.devices.find((device) => device.id === selected);
   const cable = project.cables.find((item) => item.id === selectedCable);
   const model = instance ? getDevice(instance.modelId) : undefined;
+  const cancelInteraction = () => {
+    setPending(undefined);
+    setRoute([]);
+    setWallStart(undefined);
+    setCalibrating(false);
+    setMarks([]);
+  };
+  const clearSelection = () => {
+    setSelected(undefined);
+    setSelectedCable(undefined);
+    setSelectedPlan(undefined);
+  };
+  const openProject = (next: Project) => {
+    if (avoidCollisions) for (const floor of next.plan.floors) arrangeDevices(next, detail, floor.id);
+    simulation.stop();
+    replace(next);
+    cancelInteraction();
+    clearSelection();
+    setPlanTool("select");
+    setOpenControllers([]);
+    setActiveFloor(next.plan.floors[0]?.id ?? "floor_1");
+    editor.setError("");
+    setFitRequest((value) => value + 1);
+  };
+  const chooseMode = (next: boolean) => {
+    cancelInteraction();
+    setPlanTool("select");
+    setDetail(next);
+    if (avoidCollisions)
+      change((draft) => {
+        for (const floor of draft.plan.floors) arrangeDevices(draft, next, floor.id);
+      });
+    setFitRequest((value) => value + 1);
+  };
+  const selectFloor = (id: string) => {
+    setActiveFloor(id);
+    clearSelection();
+    cancelInteraction();
+  };
+  const addFloor = () => {
+    const id = crypto.randomUUID();
+    change((draft) => draft.plan.floors.push({ id, name: `Этаж ${draft.plan.floors.length + 1}` }));
+    selectFloor(id);
+  };
+  const newProject = () => {
+    if (window.confirm("Создать пустой объект? Текущий проект останется в истории отмены."))
+      openProject(createProject());
+  };
+  const exportProject = () => {
+    try {
+      downloadProject(parseProject(project, devices));
+    } catch {
+      editor.setError("Экспорт невозможен: заполните обязательные названия и проверьте связи.");
+    }
+  };
+  const showPlan = () => {
+    clearSelection();
+    cancelInteraction();
+    setPlanTool("select");
+  };
+  const openController = (id: string) =>
+    setOpenControllers((current) => [...current.filter((item) => item !== id), id]);
   const addDevice = (modelId: string, position: Position) => {
     const spec = getDevice(modelId);
     const id = crypto.randomUUID();
-    change((draft) =>
-      draft.devices.push(
-        InstanceSchema.parse({
-          id,
-          modelId,
-          name: spec.name,
-          position,
-          floorId,
-          settings: { currentA: spec.electrical?.power?.currentA || 0.1 },
-          ...(spec.kind === "controller" ? { controller: ControllerConfigSchema.parse({}) } : {}),
-        }),
-      ),
-    );
+    const item = InstanceSchema.parse({
+      id,
+      modelId,
+      name: spec.name,
+      position,
+      floorId,
+      settings: { currentA: spec.electrical?.power?.currentA || 0.1 },
+      ...(spec.kind === "controller" ? { controller: ControllerConfigSchema.parse({}) } : {}),
+    });
+    if (avoidCollisions) item.position = freeDevicePosition(project, item, detail);
+    change((draft) => {
+      draft.devices.push(item);
+    });
+    setFitRequest((value) => value + 1);
     setSelected(id);
     setSelectedPlan(undefined);
     setSelectedCable(undefined);
@@ -94,8 +178,8 @@ export function App() {
     }
     if (pending.deviceId !== endpoint.deviceId || pending.terminalId !== endpoint.terminalId) {
       const cableId = crypto.randomUUID();
-      const from = project.devices.find((device) => device.id === pending.deviceId)?.position;
-      const to = project.devices.find((device) => device.id === endpoint.deviceId)?.position;
+      const from = endpointPosition(project, pending, detail);
+      const to = endpointPosition(project, endpoint, detail);
       const points = [from, ...route, to].filter((point): point is Position => Boolean(point));
       const length = points.slice(1).reduce((sum, point, i) => {
         const previous = points[i];
@@ -106,6 +190,7 @@ export function App() {
           id: cableId,
           name: `Кабель ${draft.cables.length + 1}`,
           floorId,
+          routing: route.length ? "manual" : "auto",
           route: route.map((point) => ({ ...point, id: crypto.randomUUID() })),
           lengthM: Math.round(length * draft.plan.metersPerUnit * 10) / 10,
           sectionMm2: 0.5,
@@ -210,13 +295,20 @@ export function App() {
     if (clone.controller) {
       clone.controller = ControllerConfigSchema.parse({});
     }
+    if (avoidCollisions) clone.position = freeDevicePosition(project, clone, detail);
     change((draft) => draft.devices.push(clone));
+    setFitRequest((value) => value + 1);
     setSelected(clone.id);
   };
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (target.closest("input, textarea, select, [contenteditable]")) return;
+      if (
+        target.closest(
+          'input, textarea, select, [contenteditable], [role="dialog"], [role="menu"], [role="region"][aria-label="Учебное задание"]',
+        )
+      )
+        return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) redo();
@@ -257,6 +349,8 @@ export function App() {
         setSelectedPlan(undefined);
         setPlanTool("select");
         setWallStart(undefined);
+        setCalibrating(false);
+        setMarks([]);
       }
     };
     window.addEventListener("keydown", listener);
@@ -267,10 +361,7 @@ export function App() {
     try {
       if (picked.size > 15000000) throw new Error("Файл слишком большой (максимум 15 МБ)");
       const parsed = parseProject(JSON.parse(await picked.text()), devices);
-      simulation.stop();
-      replace(parsed);
-      setSelected(undefined);
-      editor.setError("");
+      openProject(parsed);
     } catch (error) {
       editor.setError(error instanceof Error ? error.message : "Не удалось открыть проект");
     }
@@ -294,25 +385,29 @@ export function App() {
             })
           }
         />
-        <span className="save-status">{editor.saved ? "● Сохранено" : "Сохранение…"}</span>
-        <button type="button" onClick={() => file.current?.click()}>
-          Открыть
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            try {
-              downloadProject(parseProject(project, devices));
-            } catch {
-              editor.setError("Экспорт невозможен: заполните обязательные названия и проверьте связи.");
-            }
-          }}
-        >
-          Экспорт
-        </button>
-        <button type="button" onClick={() => setShowHelp(true)}>
-          Справка
-        </button>
+        <span className="save-status" role="status">
+          {editor.saved ? "● Сохранено" : editor.error ? "Не сохранено" : "Сохранение…"}
+        </span>
+        <ActionMenu
+          label="Проект"
+          items={[
+            { label: "Новый объект", action: newProject },
+            { label: "Открыть", action: () => file.current?.click() },
+            { label: "Экспорт", action: exportProject },
+            { heading: "Примеры" },
+            { label: "Стенд одной двери", action: () => openProject(createDoorProject()) },
+            { label: "Готовый пример", action: () => openProject(createDoorProject(true)) },
+            { label: "Два контроллера", action: () => openProject(createTwoControllersProject()) },
+            { label: "Пример OSDP-считывателя", action: () => openProject(createOsdpReaderProject()) },
+          ]}
+        />
+        <ActionMenu
+          label="Помощь"
+          items={[
+            { label: "Справка", action: () => setShowHelp(true) },
+            { label: "Задания", checked: showLesson, action: () => setShowLesson(!showLesson) },
+          ]}
+        />
         <input
           ref={file}
           hidden
@@ -324,96 +419,83 @@ export function App() {
           }}
         />
       </header>
-      <div className="toolbar">
-        <span className="mode-badge">РЕДАКТОР ОБЪЕКТА</span>
-        <button type="button" onClick={undo} disabled={!editor.canUndo}>
-          ↶ Отменить
-        </button>
-        <button type="button" onClick={redo} disabled={!editor.canRedo}>
-          ↷ Повторить
-        </button>
-        <label>
-          <input type="checkbox" checked={grid} onChange={(event) => setGrid(event.target.checked)} /> Сетка
-        </label>
-        <button
-          type="button"
-          onClick={() => {
-            setSelected(undefined);
-            setSelectedPlan(undefined);
-            setSelectedCable(undefined);
-          }}
-        >
-          План объекта
-        </button>
-        <button
-          type="button"
-          className={detail ? "active" : ""}
-          onClick={() => {
-            setDetail(!detail);
-            setPending(undefined);
-            setRoute([]);
-          }}
-        >
-          {detail ? "К плану" : "Монтаж / клеммы"}
-        </button>
-        {pending && (
+      <div className="toolbar" role="toolbar" aria-label="Инструменты редактора">
+        <div className="history-tools">
           <button
             type="button"
-            onClick={() => {
-              setPending(undefined);
-              setRoute([]);
+            aria-label="Отменить"
+            title="Отменить · Ctrl+Z"
+            onClick={undo}
+            disabled={!editor.canUndo}
+          >
+            ↶
+          </button>
+          <button
+            type="button"
+            aria-label="Повторить"
+            title="Повторить · Ctrl+Shift+Z"
+            onClick={redo}
+            disabled={!editor.canRedo}
+          >
+            ↷
+          </button>
+        </div>
+        <select
+          className="mode-select"
+          aria-label="Режим редактора"
+          value={detail ? "wiring" : "plan"}
+          onChange={(event) => chooseMode(event.target.value === "wiring")}
+        >
+          <option value="plan">План объекта</option>
+          <option value="wiring">Монтаж / клеммы</option>
+        </select>
+        {!detail && (
+          <select
+            className="tool-select"
+            aria-label="Инструмент плана"
+            value={planTool}
+            onChange={(event) => {
+              cancelInteraction();
+              clearSelection();
+              setPlanTool(event.target.value);
             }}
           >
-            Отменить провод
-          </button>
+            <option value="select">Выделение</option>
+            <option value="wall">Стена</option>
+            <option value="room">Помещение</option>
+            <option value="door">Дверь</option>
+          </select>
         )}
-        <button
-          type="button"
-          className="primary"
-          onClick={() => {
-            setPlanTool("select");
-            setWallStart(undefined);
-            simulation.toggle();
-            setShowSimulation(true);
-          }}
-        >
-          {simulation.status === "running" ? "Пауза" : simulation.status === "paused" ? "Продолжить" : "Запустить"}
-        </button>
-        <button type="button" disabled={!simulation.active} onClick={simulation.stop}>
-          Сброс
-        </button>
-        <button type="button" onClick={() => setShowSimulation(!showSimulation)}>
-          Приборы
-        </button>
-        <select
-          className="tool-select"
-          aria-label="Инструмент плана"
-          value={planTool}
-          onChange={(event) => {
-            setPlanTool(event.target.value);
-            setDetail(false);
-            setPending(undefined);
-            setWallStart(undefined);
-            setSelected(undefined);
-            setSelectedCable(undefined);
-          }}
-        >
-          <option value="select">Выделение</option>
-          <option value="wall">Стена</option>
-          <option value="room">Помещение</option>
-          <option value="door">Дверь</option>
-        </select>
+        <ActionMenu
+          label="Вид"
+          items={[
+            { label: "Сетка", checked: grid, action: () => setGrid(!grid) },
+            { label: "Свойства плана", action: showPlan },
+            { label: "Добавить этаж", action: addFloor },
+            { heading: "Компоновка" },
+            {
+              label: "Раздвигать компоненты",
+              checked: avoidCollisions,
+              action: () => {
+                setAvoidCollisions(!avoidCollisions);
+                if (!avoidCollisions) change((draft) => arrangeDevices(draft, detail, floorId));
+              },
+            },
+            {
+              label: "Развести компоненты",
+              action: () => {
+                change((draft) => arrangeDevices(draft, detail, floorId));
+                setFitRequest((value) => value + 1);
+              },
+            },
+            { label: "Показать весь этаж", action: () => setFitRequest((value) => value + 1) },
+          ]}
+        />
         <select
           className="floor-select"
           aria-label="Этаж"
           value={floorId}
-          onChange={(event) => {
-            setActiveFloor(event.target.value);
-            setSelected(undefined);
-            setSelectedCable(undefined);
-            setSelectedPlan(undefined);
-            setWallStart(undefined);
-          }}
+          onChange={(event) => selectFloor(event.target.value)}
         >
           {project.plan.floors.map((floor) => (
             <option key={floor.id} value={floor.id}>
@@ -421,39 +503,31 @@ export function App() {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          aria-label="Добавить этаж"
-          onClick={() => {
-            const id = crypto.randomUUID();
-            change((draft) => draft.plan.floors.push({ id, name: `Этаж ${draft.plan.floors.length + 1}` }));
-            setActiveFloor(id);
-            setSelected(undefined);
-            setSelectedPlan(undefined);
-          }}
-        >
-          + Этаж
-        </button>
-        <button type="button" onClick={() => setShowLesson(!showLesson)}>
-          Задания
-        </button>
         <span className="toolbar-spacer" />
-        <span>{project.devices.length} устройств</span>
+        {pending && <span className="pending-hint">Выберите вторую клемму · Esc — отмена</span>}
         <button
           type="button"
+          className="primary"
           onClick={() => {
-            if (window.confirm("Создать пустой объект? Текущий проект останется в истории отмены.")) {
-              simulation.stop();
-              setPending(undefined);
-              setRoute([]);
-              setSelectedCable(undefined);
-              replace(createProject());
-              setSelected(undefined);
-            }
+            cancelInteraction();
+            setPlanTool("select");
+            simulation.toggle();
+            setShowSimulation(true);
           }}
         >
-          Новый объект
+          {simulation.status === "running" ? "Пауза" : simulation.status === "paused" ? "Продолжить" : "Запустить"}
         </button>
+        <ActionMenu
+          label="Симуляция"
+          items={[
+            { label: "Приборы", checked: showSimulation, action: () => setShowSimulation(!showSimulation) },
+            { label: "Сброс", disabled: !simulation.active, action: simulation.stop },
+            { heading: "Контроллеры" },
+            ...project.devices
+              .filter((device) => device.controller)
+              .map((device) => ({ label: device.name, action: () => openController(device.id) })),
+          ]}
+        />
       </div>
       {editor.error && (
         <div className="error-banner" role="alert">
@@ -514,54 +588,6 @@ export function App() {
                 <span>＋</span>
               </button>
             ))}
-          <button
-            type="button"
-            onClick={() => {
-              simulation.stop();
-              replace(createDoorProject());
-              setSelected(undefined);
-              setSelectedCable(undefined);
-            }}
-          >
-            Стенд одной двери
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              simulation.stop();
-              replace(createDoorProject(true));
-              setSelected(undefined);
-              setSelectedCable(undefined);
-            }}
-          >
-            Готовый пример
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              simulation.stop();
-              replace(createTwoControllersProject());
-              setSelected(undefined);
-              setSelectedCable(undefined);
-              setSelectedPlan(undefined);
-              setOpenControllers([]);
-            }}
-          >
-            Два контроллера
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              simulation.stop();
-              replace(createOsdpReaderProject());
-              setSelected(undefined);
-              setSelectedCable(undefined);
-              setSelectedPlan(undefined);
-              setOpenControllers([]);
-            }}
-          >
-            Пример OSDP-считывателя
-          </button>
           <div className="palette-footer">
             Свободный монтаж
             <br />
@@ -578,6 +604,8 @@ export function App() {
           }}
           onAdd={addDevice}
           grid={grid}
+          avoidCollisions={avoidCollisions}
+          fitRequest={fitRequest}
           floorId={floorId}
           planTool={planTool}
           wallStart={wallStart}
@@ -638,12 +666,29 @@ export function App() {
             change((draft) => {
               const item = draft.cables.find((item) => item.id === id);
               const previous = item?.route[index];
-              if (item && previous) item.route[index] = { ...point, id: previous.id };
+              if (item && previous) {
+                item.routing = "manual";
+                item.route[index] = { ...point, id: previous.id };
+              }
             })
           }
           onRouteAdd={(id, point) =>
             change((draft) => {
-              draft.cables.find((item) => item.id === id)?.route.push({ ...point, id: crypto.randomUUID() });
+              const cable = draft.cables.find((item) => item.id === id),
+                core = cable?.cores[0];
+              if (!cable || !core) return;
+              if (automaticCable(cable)) {
+                const path = routeCables(draft, detail, floorId).find((wire) => wire.cableId === id)?.points ?? [];
+                cable.route = path.slice(1, -1).map((node) => ({ ...node, id: crypto.randomUUID() }));
+              }
+              const points = [
+                endpointPosition(draft, core.from, detail),
+                ...cable.route,
+                endpointPosition(draft, core.to, detail),
+              ];
+              const index = closestSegmentIndex(points, point);
+              cable.routing = "manual";
+              cable.route.splice(index, 0, { ...point, id: crypto.randomUUID() });
             })
           }
           calibrating={calibrating}
@@ -658,7 +703,8 @@ export function App() {
           onMove={(id, position) =>
             change((draft) => {
               const item = draft.devices.find((device) => device.id === id);
-              if (item) item.position = position;
+              if (item)
+                item.position = avoidCollisions ? freeDevicePosition(draft, { ...item, position }, detail) : position;
             })
           }
         />
@@ -700,7 +746,10 @@ export function App() {
                   onClick={() =>
                     change((draft) => {
                       const item = draft.devices.find((device) => device.id === selected);
-                      if (item) item.rotation = (item.rotation + 90) % 360;
+                      if (item) {
+                        item.rotation = (item.rotation + 90) % 360;
+                        if (avoidCollisions) item.position = freeDevicePosition(draft, item, detail);
+                      }
                     })
                   }
                 >
@@ -743,13 +792,7 @@ export function App() {
                 </button>
               )}
               {instance.controller && (
-                <button
-                  type="button"
-                  className="primary wide"
-                  onClick={() =>
-                    setOpenControllers((current) => [...current.filter((id) => id !== instance.id), instance.id])
-                  }
-                >
+                <button type="button" className="primary wide" onClick={() => openController(instance.id)}>
                   Открыть веб-интерфейс
                 </button>
               )}
@@ -797,16 +840,7 @@ export function App() {
           project={project}
           simulation={simulation}
           onClose={() => setShowLesson(false)}
-          onStart={(id) => {
-            simulation.stop();
-            replace(createScenarioProject(id));
-            setSelected(undefined);
-            setSelectedCable(undefined);
-            setSelectedPlan(undefined);
-            setPending(undefined);
-            setPlanTool("select");
-            setOpenControllers([]);
-          }}
+          onStart={(id) => openProject(createScenarioProject(id))}
         />
       )}
       {openControllers.map((id, index) => {
@@ -829,7 +863,10 @@ export function App() {
         ) : null;
       })}
       <footer className="statusbar">
-        <span>Объект / {project.plan.floors.find((floor) => floor.id === floorId)?.name}</span>
+        <span>
+          Объект / {project.plan.floors.find((floor) => floor.id === floorId)?.name} ·{" "}
+          {project.devices.filter((device) => device.floorId === floorId).length} устройств
+        </span>
         <span>{offlineReady ? "Офлайн готов · " : ""}Ctrl+Z — отмена · Ctrl+Shift+Z — повтор</span>
       </footer>
     </div>

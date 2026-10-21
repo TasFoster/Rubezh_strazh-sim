@@ -1,5 +1,6 @@
 import { getDevice } from "@strazh-sim/content";
 import type { Cable, Endpoint, Project } from "@strazh-sim/core";
+import { automaticCable } from "./geometry";
 
 type Props = {
   cable: Cable;
@@ -22,6 +23,22 @@ export function CablePanel({ cable, project, change, onDelete }: Props) {
   return (
     <>
       <h2>Кабель</h2>
+      <label>
+        Прокладка
+        <select
+          aria-label="Прокладка кабеля"
+          value={automaticCable(cable) ? "auto" : "manual"}
+          onChange={(event) =>
+            edit((draft) => {
+              draft.routing = event.target.value === "auto" ? "auto" : "manual";
+              if (draft.routing === "auto") draft.route = [];
+            })
+          }
+        >
+          <option value="auto">Автоматически · обход компонентов</option>
+          <option value="manual">Вручную · по заданным узлам</option>
+        </select>
+      </label>
       <label>
         Название
         <input
@@ -68,7 +85,8 @@ export function CablePanel({ cable, project, change, onDelete }: Props) {
         />
       </label>
       <p className="muted">
-        Длина задаётся отдельно от схемы. Маршрут: двойной щелчок по кабелю добавляет точку, узлы можно двигать.
+        Длина задаётся отдельно от схемы. Автомаршрут перестраивается при перемещении устройств. Двойной щелчок по
+        кабелю включает ручной маршрут и добавляет узел.
       </p>
       {cable.route.map((point, index) => (
         <div className="route-row" key={point.id}>

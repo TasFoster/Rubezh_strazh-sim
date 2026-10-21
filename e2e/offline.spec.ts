@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { menuAction } from "./helpers";
 
 test("сборка работает без сети после первого открытия", async ({ page, context }) => {
   await page.goto("/");
@@ -9,7 +10,7 @@ test("сборка работает без сети после первого о
         navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), { once: true }),
       );
   });
-  await page.getByRole("button", { name: "Готовый пример", exact: true }).click();
+  await menuAction(page, "Проект", "Готовый пример");
   await expect(page.getByText("● Сохранено", { exact: true })).toBeVisible();
   await context.setOffline(true);
   await page.reload();

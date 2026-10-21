@@ -1,7 +1,15 @@
 import { getDevice } from "@strazh-sim/content";
 import { backgroundFor, type Endpoint, type Position, type Project } from "@strazh-sim/core";
-import { useEffect, useRef, useState } from "react";
-import { cardSize, endpointPosition, terminalPoint } from "./geometry";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  cardSize,
+  endpointPosition,
+  floorBounds,
+  freeDevicePosition,
+  routeCables,
+  terminalPoint,
+  wireBridges,
+} from "./geometry";
 import { kindLabel } from "./labels";
 import type { PlanSelection } from "./PlanObjectPanel";
 export type Camera = { x: number; y: number; zoom: number };
@@ -12,6 +20,8 @@ type Props = {
   onMove: (id: string, point: Position) => void;
   onAdd: (modelId: string, point: Position) => void;
   grid: boolean;
+  avoidCollisions: boolean;
+  fitRequest: number;
   floorId: string;
   planTool: string;
   selectedPlan: PlanSelection | undefined;
@@ -40,6 +50,8 @@ export function Workbench({
   onMove,
   onAdd,
   grid,
+  avoidCollisions,
+  fitRequest,
   floorId,
   planTool,
   selectedPlan,
@@ -66,6 +78,49 @@ export function Workbench({
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [size, setSize] = useState({ width: 1000, height: 700 });
   const [drag, setDrag] = useState<{ id: string; offset: Position; point: Position }>();
+  const previewDrag = useMemo(() => {
+    const device = project.devices.find((device) => device.id === drag?.id);
+    if (!drag || !device || !avoidCollisions) return drag;
+    return { ...drag, point: freeDevicePosition(project, { ...device, position: drag.point }, detail) };
+  }, [project, drag, detail, avoidCollisions]);
+  const routingProject = useMemo(() => {
+    if (!previewDrag) return project;
+    return {
+      ...project,
+      devices: project.devices.map((device) =>
+        device.id === previewDrag.id ? { ...device, position: previewDrag.point } : device,
+      ),
+      cables: project.cables.map((cable) => ({
+        ...cable,
+        route: cable.route.map((point, index) =>
+          previewDrag.id === `__route|${cable.id}|${index}` ? { ...point, ...previewDrag.point } : point,
+        ),
+      })),
+    };
+  }, [project, previewDrag]);
+  const wires = useMemo(() => routeCables(routingProject, detail, floorId), [routingProject, detail, floorId]);
+  const bridges = useMemo(() => wireBridges(wires), [wires]);
+  const lastFit = useRef("");
+  useEffect(() => {
+    const key = `${fitRequest}/${floorId}/${detail}/${size.width}/${size.height}`;
+    if (lastFit.current === key) return;
+    lastFit.current = key;
+    const bounds = floorBounds(project, detail, floorId);
+    if (!bounds) {
+      setCamera({ x: 0, y: 0, zoom: 1 });
+      return;
+    }
+    const margin = 70;
+    const zoom = Math.max(
+      0.05,
+      Math.min(1.25, size.width / (bounds.width + margin * 2), size.height / (bounds.height + margin * 2)),
+    );
+    setCamera({
+      x: bounds.x + bounds.width / 2 - size.width / zoom / 2,
+      y: bounds.y + bounds.height / 2 - size.height / zoom / 2,
+      zoom,
+    });
+  }, [fitRequest, floorId, detail, project, size]);
   const pan = useRef<{ x: number; y: number; camera: Camera } | undefined>(undefined);
   useEffect(() => {
     const node = svg.current;
@@ -87,49 +142,51 @@ export function Workbench({
     grid ? { x: Math.round(point.x / 20) * 20, y: Math.round(point.y / 20) * 20 } : point;
   const zoomAt = (factor: number, x = size.width / 2, y = size.height / 2) => {
     setCamera((old) => {
-      const zoom = Math.max(0.2, Math.min(3, old.zoom * factor));
+      const zoom = Math.max(0.05, Math.min(4, old.zoom * factor));
       return { zoom, x: old.x + x / old.zoom - x / zoom, y: old.y + y / old.zoom - y / zoom };
     });
   };
   return (
     <div className="workspace">
       <div className="canvas-tools">
-        <button type="button" onClick={() => zoomAt(1.25)} aria-label="Увеличить">
-          +
-        </button>
-        <span>{Math.round(camera.zoom * 100)}%</span>
-        <button type="button" onClick={() => zoomAt(0.8)} aria-label="Уменьшить">
-          −
-        </button>
+        <select
+          className="zoom-select"
+          aria-label="Масштаб"
+          value={Math.round(camera.zoom * 100)}
+          onChange={(event) => {
+            if (event.target.value === "origin") setCamera({ x: 0, y: 0, zoom: 1 });
+            else zoomAt(Number(event.target.value) / (camera.zoom * 100));
+          }}
+        >
+          {[...new Set([25, 50, 75, 100, 125, 150, 200, Math.round(camera.zoom * 100)])]
+            .sort((a, b) => a - b)
+            .map((value) => (
+              <option key={value} value={value}>
+                {value}%
+              </option>
+            ))}
+          <option value="origin">К началу</option>
+        </select>
         <button
           type="button"
           onClick={() => {
-            if (!project.devices.length) return;
-            const minX = Math.min(...project.devices.map((device) => device.position.x)) - 30;
-            const minY = Math.min(...project.devices.map((device) => device.position.y)) - 60;
-            const maxX =
-              Math.max(
-                ...project.devices.map(
-                  (device) => device.position.x + cardSize(getDevice(device.modelId), detail).width,
-                ),
-              ) + 30;
-            const maxY =
-              Math.max(
-                ...project.devices.map(
-                  (device) => device.position.y + cardSize(getDevice(device.modelId), detail).height,
-                ),
-              ) + 30;
+            const bounds = floorBounds(project, detail, floorId);
+            if (!bounds) return;
+            const xs = wires.flatMap((wire) => wire.points.map((point) => point.x));
+            const ys = wires.flatMap((wire) => wire.points.map((point) => point.y));
+            const minX = Math.min(bounds.x, ...xs) - 50,
+              minY = Math.min(bounds.y, ...ys) - 70;
+            const maxX = Math.max(bounds.x + bounds.width, ...xs) + 50,
+              maxY = Math.max(bounds.y + bounds.height, ...ys) + 50;
+            const zoom = Math.max(0.05, Math.min(1.5, size.width / (maxX - minX), size.height / (maxY - minY)));
             setCamera({
-              x: minX,
-              y: minY,
-              zoom: Math.max(0.2, Math.min(1.5, size.width / (maxX - minX), size.height / (maxY - minY))),
+              x: (minX + maxX) / 2 - size.width / zoom / 2,
+              y: (minY + maxY) / 2 - size.height / zoom / 2,
+              zoom,
             });
           }}
         >
           Весь объект
-        </button>
-        <button type="button" onClick={() => setCamera({ x: 0, y: 0, zoom: 1 })}>
-          К началу
         </button>
       </div>
       <svg
@@ -141,7 +198,7 @@ export function Workbench({
         onPointerDownCapture={(event) => {
           if (
             event.button === 0 &&
-            (planTool !== "select" || ((calibrating || pending) && event.target === event.currentTarget))
+            (planTool !== "select" || calibrating || (pending && event.target === event.currentTarget))
           ) {
             event.stopPropagation();
             onPlanClick(snap(pointAt(event.clientX, event.clientY)));
@@ -186,7 +243,7 @@ export function Workbench({
               const [, cableId, index] = drag.id.split("|");
               if (cableId && index) onRouteMove(cableId, Number(index), drag.point);
             } else if (drag.id === "__background") onBackgroundMove(drag.point);
-            else onMove(drag.id, drag.point);
+            else onMove(drag.id, previewDrag?.point ?? drag.point);
           }
           setDrag(undefined);
           pan.current = undefined;
@@ -390,70 +447,118 @@ export function Workbench({
               </g>
             );
           })}
-        {project.cables
-          .filter((cable) => cable.floorId === floorId)
-          .map((cable) => (
-            <g key={cable.id}>
-              {cable.cores.map((core) => {
-                const from = endpointPosition(project, core.from, detail, drag),
-                  to = endpointPosition(project, core.to, detail, drag);
-                const nodes = cable.route.map((point, index) =>
-                  drag?.id === `__route|${cable.id}|${index}` ? drag.point : point,
-                );
-                const points = [from, ...nodes, to].map((point) => `${point.x},${point.y}`).join(" ");
-                return (
-                  <g key={core.id}>
-                    <polyline
-                      points={points}
-                      fill="none"
-                      stroke={selectedCable === cable.id ? "#e2af40" : "#fff"}
-                      strokeWidth={selectedCable === cable.id ? 7 : 5}
-                      pointerEvents="none"
-                    />
-                    {/* biome-ignore lint/a11y/useSemanticElements: SVG cable has keyboard interaction. */}
-                    <polyline
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Кабель ${cable.name}`}
-                      points={points}
-                      fill="none"
-                      stroke={core.color}
-                      strokeWidth="2.5"
-                      strokeDasharray={core.broken ? "5 4" : undefined}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={(event) => {
+        {wires.map((wire) => {
+          const cable = project.cables.find((item) => item.id === wire.cableId);
+          if (!cable) return null;
+          const points = wire.points.map((point) => `${point.x},${point.y}`).join(" ");
+          const origin = endpointPosition(routingProject, wire.from, detail);
+          return (
+            <g key={`${wire.cableId}/${wire.coreId}`}>
+              {wire.points.length ? (
+                <>
+                  <polyline
+                    points={points}
+                    fill="none"
+                    stroke={selectedCable === cable.id ? "#e2af40" : "#fff"}
+                    strokeWidth={selectedCable === cable.id ? 7 : 5}
+                    pointerEvents="none"
+                  />
+                  {/* biome-ignore lint/a11y/useSemanticElements: SVG wire supports keyboard selection. */}
+                  <polyline
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Кабель ${cable.name}`}
+                    data-core-id={wire.coreId}
+                    data-route-warning={wire.warning}
+                    points={points}
+                    fill="none"
+                    stroke={wire.color}
+                    strokeWidth="2.5"
+                    strokeDasharray={wire.broken ? "5 4" : undefined}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCable(cable.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
                         event.stopPropagation();
                         onCable(cable.id);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") onCable(cable.id);
-                      }}
-                      onDoubleClick={(event) => {
-                        event.stopPropagation();
-                        onRouteAdd(cable.id, snap(pointAt(event.clientX, event.clientY)));
-                      }}
-                    />
-                  </g>
-                );
-              })}
-              {selectedCable === cable.id &&
-                cable.route.map((point, index) => (
-                  <circle
-                    key={point.id}
-                    cx={drag?.id === `__route|${cable.id}|${index}` ? drag.point.x : point.x}
-                    cy={drag?.id === `__route|${cable.id}|${index}` ? drag.point.y : point.y}
-                    r="6"
-                    fill="#e2af40"
-                    stroke="#fff"
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      setDrag({ id: `__route|${cable.id}|${index}`, offset: { x: 0, y: 0 }, point });
-                      svg.current?.setPointerCapture(event.pointerId);
+                      }
                     }}
-                  />
-                ))}
+                    onDoubleClick={(event) => {
+                      event.stopPropagation();
+                      onRouteAdd(cable.id, snap(pointAt(event.clientX, event.clientY)));
+                    }}
+                  >
+                    <title>
+                      {wire.warning ??
+                        `${cable.name} · ${cable.routing === "manual" || (cable.routing !== "auto" && cable.route.length) ? "ручной маршрут" : "автомаршрут"}`}
+                    </title>
+                  </polyline>
+                </>
+              ) : (
+                // biome-ignore lint/a11y/useSemanticElements: SVG route warning supports keyboard selection.
+                <circle
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Конфликт кабеля ${cable.name}`}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") onCable(cable.id);
+                  }}
+                  cx={origin.x}
+                  cy={origin.y}
+                  r="9"
+                  fill="none"
+                  stroke="#c15f3c"
+                  strokeWidth="3"
+                  onClick={() => onCable(cable.id)}
+                >
+                  <title>{wire.warning}</title>
+                </circle>
+              )}
             </g>
-          ))}
+          );
+        })}
+        {bridges.map(({ key, point, horizontal, color }) => {
+          const path = horizontal
+            ? `M ${point.x - 5} ${point.y} Q ${point.x} ${point.y - 10} ${point.x + 5} ${point.y}`
+            : `M ${point.x} ${point.y - 5} Q ${point.x + 10} ${point.y} ${point.x} ${point.y + 5}`;
+          return (
+            <g key={key} pointerEvents="none">
+              <line
+                x1={horizontal ? point.x - 6 : point.x}
+                y1={horizontal ? point.y : point.y - 6}
+                x2={horizontal ? point.x + 6 : point.x}
+                y2={horizontal ? point.y : point.y + 6}
+                stroke="white"
+                strokeWidth="7"
+              />
+              <path d={path} fill="none" stroke="white" strokeWidth="7" />
+              <path d={path} fill="none" stroke={color} strokeWidth="2.5" />
+            </g>
+          );
+        })}
+        {project.cables
+          .filter((cable) => cable.id === selectedCable)
+          .flatMap((cable) =>
+            cable.route.map((point, index) => (
+              <circle
+                key={point.id}
+                cx={drag?.id === `__route|${cable.id}|${index}` ? drag.point.x : point.x}
+                cy={drag?.id === `__route|${cable.id}|${index}` ? drag.point.y : point.y}
+                r="6"
+                fill="#e2af40"
+                stroke="#fff"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  setDrag({ id: `__route|${cable.id}|${index}`, offset: { x: 0, y: 0 }, point });
+                  svg.current?.setPointerCapture(event.pointerId);
+                }}
+              />
+            )),
+          )}
         {pending && (
           <polyline
             points={[endpointPosition(project, pending, detail, drag), ...route]
@@ -470,7 +575,7 @@ export function Workbench({
           .filter((instance) => instance.floorId === floorId)
           .map((instance) => {
             const model = getDevice(instance.modelId);
-            const position = drag?.id === instance.id ? drag.point : instance.position;
+            const position = previewDrag?.id === instance.id ? previewDrag.point : instance.position;
             const size = cardSize(model, detail);
             return (
               // biome-ignore lint/a11y/useSemanticElements: SVG device group supports keyboard selection.
@@ -482,7 +587,10 @@ export function Workbench({
                 aria-label={`Устройство ${instance.name}`}
                 aria-pressed={selected === instance.id}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") onSelect(instance.id);
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(instance.id);
+                  }
                 }}
                 onPointerDown={(event) => {
                   if (event.button !== 0) return;
@@ -581,16 +689,24 @@ export function Workbench({
             );
           })}
       </svg>
-      {!project.devices.length && (
-        <div className="empty-state">
-          <strong>Начните с оборудования</strong>
-          <p>
-            Перетащите компонент из панели на план
-            <br />
-            или нажмите на его название.
-          </p>
+      {wires.some((wire) => wire.warning) && (
+        <div className="routing-warning" role="status">
+          Есть конфликты маршрутов. В «Вид» выберите «Развести компоненты» или включите автомаршрут кабеля.
         </div>
       )}
+      {!project.devices.some((device) => device.floorId === floorId) &&
+        !background &&
+        !project.plan.walls.some((wall) => wall.floorId === floorId) &&
+        !project.plan.rooms.some((room) => room.floorId === floorId) && (
+          <div className="empty-state">
+            <strong>Начните с оборудования</strong>
+            <p>
+              Перетащите компонент из панели на план
+              <br />
+              или нажмите на его название.
+            </p>
+          </div>
+        )}
       <div className="canvas-hint">Колесо — масштаб · Правая кнопка — камера · Delete — удалить</div>
     </div>
   );
