@@ -17,6 +17,7 @@ export type SimEvent = {
   code: string;
   message: string;
   pointId?: string;
+  cause?: "card" | "card_exit" | "button" | "operator";
 };
 export type Simulation = {
   timeMs: number;
@@ -32,7 +33,7 @@ export type Simulation = {
   events: SimEvent[];
 };
 export type SimAction =
-  | { type: "card"; controllerId: string; pointId: string; cardId: string }
+  | { type: "card"; controllerId: string; pointId: string; cardId: string; direction?: "entry" | "exit" }
   | { type: "unlock"; controllerId: string; pointId: string }
   | { type: "button"; deviceId: string; pressed: boolean }
   | { type: "door"; controllerId: string; pointId: string; open: boolean; force?: boolean }
@@ -113,6 +114,7 @@ export function discoverModules(
   return links;
 }
 export function lockIsOpen(project: Project, circuit: CircuitResult, lockId: string): boolean {
+  if (circuit.actuatorsOpen[lockId] !== undefined) return Boolean(circuit.actuatorsOpen[lockId]);
   const lock = project.devices.find((device) => device.id === lockId);
   if (!lock) return false;
   return lock.settings.lockMode === "fail_safe" ? !circuit.powered[lockId] : Boolean(circuit.powered[lockId]);
@@ -153,12 +155,13 @@ function readerReady(
   catalog: readonly DeviceSpec[],
   circuit: CircuitResult,
   point: AccessPoint,
+  exit = false,
 ): boolean {
   const module = project.devices.find((device) => device.id === point.moduleId),
-    reader = project.devices.find((device) => device.id === point.readerId);
+    reader = project.devices.find((device) => device.id === (exit ? point.exitReaderId : point.readerId));
   const port = catalog
     .find((model) => model.id === module?.modelId)
-    ?.electrical?.readers.find((port) => port.id === `reader${point.relay}`);
+    ?.electrical?.readers.find((port) => port.id === `reader${exit ? (point.relay === 1 ? 2 : 1) : point.relay}`);
   const readerPort = catalog.find((model) => model.id === reader?.modelId)?.electrical?.readers[0];
   return Boolean(
     module &&
@@ -183,7 +186,13 @@ export function advanceSimulation(
   if (!Number.isFinite(deltaMs) || deltaMs < 0) throw new RangeError("Некорректный шаг времени");
   const state = JSON.parse(JSON.stringify(previous)) as Simulation;
   state.timeMs += deltaMs;
-  const event = (controllerId: string, code: string, message: string, pointId?: string) => {
+  const event = (
+    controllerId: string,
+    code: string,
+    message: string,
+    pointId?: string,
+    cause?: "card" | "card_exit" | "button" | "operator",
+  ) => {
     state.events.push({
       sequence: ++state.sequence,
       timeMs: state.timeMs,
@@ -191,6 +200,7 @@ export function advanceSimulation(
       code,
       message,
       ...(pointId ? { pointId } : {}),
+      ...(cause ? { cause } : {}),
     });
     state.events = state.events.slice(-1000);
   };
@@ -210,19 +220,25 @@ export function advanceSimulation(
       state.addresses[device.id] = device.settings.address;
   let links = discoverModules(project, catalog, circuit, state.addresses);
   const controllers = project.devices.filter((device) => device.controller);
-  const unlock = (controller: DeviceInstance, point: AccessPoint, reason: string) => {
+  const unlock = (
+    controller: DeviceInstance,
+    point: AccessPoint,
+    reason: string,
+    cause: "card" | "card_exit" | "button" | "operator" = "operator",
+  ) => {
     if (!pointReady(circuit, links, controller, point)) {
       event(controller.id, "offline", "Открытие невозможно: нет связи с модулем", point.id);
       return;
     }
     state.unlockUntil[pointKey(controller.id, point.id)] = state.timeMs + point.unlockMs;
-    event(controller.id, "unlock", `Открытие: ${reason}`, point.id);
+    event(controller.id, "unlock", `Открытие: ${reason}`, point.id, cause);
   };
   for (const controller of controllers)
     for (const point of controller.controller?.points ?? []) {
       const key = `${pointKey(controller.id, point.id)}/exit`,
         input = pointInput(project, catalog, circuit, point, "exit");
-      if (input === "closed" && previous.inputStates[key] !== "closed") unlock(controller, point, "кнопка выхода");
+      if (input === "closed" && previous.inputStates[key] !== "closed")
+        unlock(controller, point, "кнопка выхода", "button");
       state.inputStates[key] = input;
     }
   for (const action of actions) {
@@ -233,11 +249,17 @@ export function advanceSimulation(
     if (action.type === "unlock") unlock(controller, point, "оператор");
     else {
       const card = controller.controller?.cards.find((card) => card.id === action.cardId);
-      if (!readerReady(project, catalog, circuit, point))
+      if (!readerReady(project, catalog, circuit, point, action.direction === "exit"))
         event(controller.id, "reader_offline", "Считыватель не подключён или без питания", point.id);
       else if (!card?.enabled || !card.pointIds.includes(point.id))
         event(controller.id, "denied", `Доступ запрещён: карта ${action.cardId}`, point.id);
-      else unlock(controller, point, `карта ${action.cardId}, ${card.owner}`);
+      else
+        unlock(
+          controller,
+          point,
+          `карта ${action.cardId}, ${card.owner}`,
+          action.direction === "exit" ? "card_exit" : "card",
+        );
     }
   }
   state.relays = {};

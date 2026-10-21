@@ -45,6 +45,7 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
   const [scan, setScan] = useState(false);
   const [pointName, setPointName] = useState("Дверь 1");
   const [relay, setRelay] = useState(1);
+  const [exitReaderId, setExitReaderId] = useState("");
   const [unlockMs, setUnlockMs] = useState(3000);
   const find = (kind: string) => project.devices.find((device) => getDevice(device.modelId).kind === kind)?.id ?? "";
   const [bindings, setBindings] = useState({
@@ -77,6 +78,7 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
       id: crypto.randomUUID(),
       name: pointName,
       ...bindings,
+      ...(exitReaderId ? { exitReaderId } : {}),
       relay,
       unlockMs,
     });
@@ -453,7 +455,8 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
                       {project.devices
                         .filter(
                           (device) =>
-                            getDevice(device.modelId).kind === kind &&
+                            (getDevice(device.modelId).kind === kind ||
+                              (kind === "lock" && getDevice(device.modelId).kind === "turnstile")) &&
                             (kind !== "access_module" || config.modules.includes(device.id)),
                         )
                         .map((device) => (
@@ -464,6 +467,19 @@ export function ControllerWindow({ project, controller, simulation: sim, change,
                     </select>
                   </label>
                 ))}
+                <label>
+                  Выходной считыватель
+                  <select value={exitReaderId} onChange={(event) => setExitReaderId(event.target.value)}>
+                    <option value="">Не используется</option>
+                    {project.devices
+                      .filter((device) => getDevice(device.modelId).kind === "reader")
+                      .map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
                 <label>
                   Реле
                   <select value={relay} onChange={(event) => setRelay(Number(event.target.value))}>

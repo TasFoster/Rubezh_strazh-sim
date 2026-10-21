@@ -77,3 +77,131 @@ export function createDoorProject(configured = false): Project {
   wire("module", "in_gnd1", "contact", "b");
   return project;
 }
+
+export function createBidirectionalProject(): Project {
+  const project = createDoorProject(true);
+  project.id = "two_way_door";
+  project.name = "Двусторонняя дверь";
+  project.devices.push(
+    InstanceSchema.parse({
+      id: "reader_exit",
+      modelId: "training_reader",
+      name: "Считыватель · выход",
+      position: { x: 1150, y: 70 },
+    }),
+  );
+  const point = project.devices.find((device) => device.id === "controller")?.controller?.points[0];
+  if (point) point.exitReaderId = "reader_exit";
+  for (const [port, terminal, color] of [
+    ["r2_u", "pos", "#ba4f4f"],
+    ["r2_gnd", "neg", "#596879"],
+    ["r2_d0", "d0", "#347b84"],
+    ["r2_d1", "d1", "#347b84"],
+  ]) {
+    project.cables.push(
+      CableSchema.parse({
+        id: `exit_${terminal}`,
+        name: `Считыватель выхода: ${terminal}`,
+        cores: [
+          {
+            id: "core_1",
+            color,
+            from: { deviceId: "module", terminalId: port },
+            to: { deviceId: "reader_exit", terminalId: terminal },
+          },
+        ],
+      }),
+    );
+  }
+  return project;
+}
+export function createTurnstileProject(): Project {
+  const project = createDoorProject(true);
+  project.id = "turnstile_demo";
+  project.name = "Учебный турникет";
+  const actuator = project.devices.find((device) => device.id === "lock");
+  if (actuator) {
+    actuator.modelId = "training_turnstile";
+    actuator.name = "Турникет";
+  }
+  project.cables = project.cables.filter(
+    (cable) =>
+      !cable.cores.some((core) =>
+        [core.from, core.to].some(
+          (end) =>
+            end.deviceId === "lock" || (end.deviceId === "module" && ["k1_com", "k1_nc"].includes(end.terminalId)),
+        ),
+      ),
+  );
+  const pairs = [
+    ["psu", "pos", "lock", "pos"],
+    ["psu", "neg", "lock", "neg"],
+    ["module", "k1_com", "lock", "release_a"],
+    ["module", "k1_no", "lock", "control_gnd"],
+  ];
+  pairs.forEach(([a, ta, b, tb], index) => {
+    project.cables.push(
+      CableSchema.parse({
+        id: `gate_${index}`,
+        name: `Турникет ${index + 1}`,
+        cores: [
+          {
+            id: "core_1",
+            color: "#886eac",
+            from: { deviceId: a, terminalId: ta },
+            to: { deviceId: b, terminalId: tb },
+          },
+        ],
+      }),
+    );
+  });
+  const point = project.devices.find((device) => device.id === "controller")?.controller?.points[0];
+  if (point) point.name = "Турникет · вход";
+  return project;
+}
+export function createTwoControllersProject(): Project {
+  const project = createProject();
+  project.id = "two_controllers";
+  project.name = "Два независимых контроллера";
+  for (const [prefix, offset, ip] of [
+    ["a_", 0, "192.168.0.101"],
+    ["b_", 1150, "192.168.0.102"],
+  ] as const) {
+    const source = createDoorProject(true);
+    for (const device of source.devices) {
+      device.id = prefix + device.id;
+      device.position.x += offset;
+      device.name = `${prefix === "a_" ? "А" : "Б"} · ${device.name}`;
+      if (device.controller) {
+        device.controller.ip = ip;
+        device.controller.modules = device.controller.modules.map((id) => prefix + id);
+        for (const point of device.controller.points) {
+          point.id = prefix + point.id;
+          point.moduleId = prefix + point.moduleId;
+          point.readerId = prefix + point.readerId;
+          point.lockId = prefix + point.lockId;
+          point.buttonId = prefix + point.buttonId;
+          point.contactId = prefix + point.contactId;
+        }
+        for (const card of device.controller.cards) {
+          card.id = prefix === "a_" ? "1001" : "2001";
+          card.pointIds = card.pointIds.map((id) => prefix + id);
+        }
+      }
+      project.devices.push(device);
+    }
+    for (const cable of source.cables) {
+      cable.id = prefix + cable.id;
+      for (const point of cable.route) {
+        point.id = prefix + point.id;
+        point.x += offset;
+      }
+      for (const core of cable.cores) {
+        core.from.deviceId = prefix + core.from.deviceId;
+        core.to.deviceId = prefix + core.to.deviceId;
+      }
+      project.cables.push(cable);
+    }
+  }
+  return project;
+}

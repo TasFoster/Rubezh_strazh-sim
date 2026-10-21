@@ -6,6 +6,10 @@ import type { SimulationController } from "./useSimulation";
 type Props = { project: Project; simulation: SimulationController; onClose: () => void };
 export function SimulationPanel({ project, simulation: sim, onClose }: Props) {
   const [tab, setTab] = useState("actions");
+  const isTurnstile = (id: string) => {
+    const device = project.devices.find((device) => device.id === id);
+    return device ? getDevice(device.modelId).kind === "turnstile" : false;
+  };
   const [red, setRed] = useState("");
   const [black, setBlack] = useState("");
   const [mode, setMode] = useState("voltage");
@@ -80,6 +84,23 @@ export function SimulationPanel({ project, simulation: sim, onClose }: Props) {
                     >
                       Приложить карту
                     </button>
+                    {point.exitReaderId && (
+                      <button
+                        type="button"
+                        disabled={sim.status !== "running"}
+                        onClick={() =>
+                          sim.dispatch({
+                            type: "card",
+                            controllerId: controller.id,
+                            pointId: point.id,
+                            cardId,
+                            direction: "exit",
+                          })
+                        }
+                      >
+                        Карта на выход
+                      </button>
+                    )}
                     <button
                       type="button"
                       disabled={sim.status !== "running"}
@@ -105,7 +126,13 @@ export function SimulationPanel({ project, simulation: sim, onClose }: Props) {
                         })
                       }
                     >
-                      {sim.state.contacts[point.contactId] === false ? "Закрыть дверь" : "Открыть дверь"}
+                      {isTurnstile(point.lockId)
+                        ? sim.state.contacts[point.contactId] === false
+                          ? "Завершить проход"
+                          : "Начать проход"
+                        : sim.state.contacts[point.contactId] === false
+                          ? "Закрыть дверь"
+                          : "Открыть дверь"}
                     </button>
                   </div>
                 )) ?? [],

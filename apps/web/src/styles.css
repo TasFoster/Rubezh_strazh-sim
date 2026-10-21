@@ -793,3 +793,60 @@ h3 {
   font-size: 11px;
   padding: 7px;
 }
+.lesson-panel {
+  position: fixed;
+  left: 265px;
+  top: 195px;
+  width: 350px;
+  max-height: calc(100dvh - 230px);
+  background: #fff;
+  border: 1px solid #c4d4dd;
+  box-shadow: 0 10px 40px #15324433;
+  border-radius: 8px;
+  padding: 18px;
+  z-index: 20;
+  overflow: auto;
+}
+.lesson-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.lesson-panel p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.app .lesson-panel label {
+  font-size: 11px;
+}
+.app .lesson-panel label select {
+  margin-top: 8px;
+}
+.goal-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.goal-list li {
+  display: flex;
+  gap: 9px;
+  line-height: 1.7;
+  font-size: 12px;
+  margin: 9px 0;
+  color: #81949e;
+}
+.goal-list li.passed {
+  color: #2f8b6a;
+}
+.lesson-complete {
+  background: #e8f6ed;
+  color: #2f8b6a;
+  padding: 10px;
+  border-radius: 5px;
+}
+.lesson-hint {
+  border-left: 3px solid #e2b656;
+  padding-left: 10px;
+  color: #7d6a38;
+}

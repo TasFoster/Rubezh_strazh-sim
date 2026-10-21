@@ -9,6 +9,7 @@ const DeviceKindSchema = z.enum([
   "door_contact",
   "power_supply",
   "resistor",
+  "turnstile",
 ]);
 export type DeviceKind = z.infer<typeof DeviceKindSchema>;
 

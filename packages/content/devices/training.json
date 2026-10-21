@@ -265,5 +265,76 @@
         "normallyClosed": true
       }
     }
+  },
+  {
+    "id": "training_turnstile",
+    "name": "Турникет (учебный, сухой контакт)",
+    "kind": "turnstile",
+    "source": {
+      "document": "Учебная модель: питание 12 В, разрешение прохода замыканием входа",
+      "edition": "1"
+    },
+    "supply": {
+      "minVoltage": 9,
+      "maxVoltage": 15,
+      "maxCurrentA": 1
+    },
+    "blocks": [
+      {
+        "id": "main",
+        "label": "Питание и управление"
+      }
+    ],
+    "terminals": [
+      {
+        "id": "pos",
+        "label": "+U",
+        "kind": "power_in",
+        "block": "main"
+      },
+      {
+        "id": "neg",
+        "label": "GND",
+        "kind": "ground",
+        "block": "main"
+      },
+      {
+        "id": "release_a",
+        "label": "Вход A",
+        "kind": "supervised_input",
+        "block": "main"
+      },
+      {
+        "id": "release_b",
+        "label": "Вход B",
+        "kind": "supervised_input",
+        "block": "main"
+      },
+      {
+        "id": "control_gnd",
+        "label": "Общий управления",
+        "kind": "ground",
+        "block": "main"
+      }
+    ],
+    "electrical": {
+      "power": {
+        "positive": "pos",
+        "negative": "neg",
+        "currentA": 1
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "signal": "release_a",
+          "ground": "control_gnd"
+        },
+        {
+          "id": "b",
+          "signal": "release_b",
+          "ground": "control_gnd"
+        }
+      ]
+    }
   }
 ]

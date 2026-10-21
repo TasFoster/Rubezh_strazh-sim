@@ -29,6 +29,7 @@ export {
   removeDevice,
   serializeProject,
 } from "./project";
+export { evaluateScenario, type Goal, type GoalResult, GoalSchema, type Scenario, ScenarioSchema } from "./scenario";
 export {
   advanceSimulation,
   createSimulation,

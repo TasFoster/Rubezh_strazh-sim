@@ -154,6 +154,7 @@ function build(project: Project, catalog: readonly DeviceSpec[], controls: Circu
   return { ideal, wired, resistors: mapped, sources: voltageSources, models };
 }
 export type CircuitResult = {
+  actuatorsOpen: Readonly<Record<string, boolean>>;
   powered: Readonly<Record<string, boolean>>;
   voltages: Readonly<Record<string, number | undefined>>;
   sourceCurrents: Readonly<Record<string, number>>;
@@ -344,7 +345,26 @@ export function solveCircuit(
     rhs[probe] = 1;
     return solve(matrix, rhs)?.[probe] ?? Number.NaN;
   };
+  const actuatorsOpen: Record<string, boolean> = Object.create(null);
+  for (const device of project.devices) {
+    const model = network.models.get(device.modelId);
+    if (model?.kind === "lock")
+      actuatorsOpen[device.id] =
+        device.settings.lockMode === "fail_safe" ? !powered[device.id] : Boolean(powered[device.id]);
+    if (model?.kind === "turnstile")
+      actuatorsOpen[device.id] = Boolean(
+        powered[device.id] &&
+          model.electrical?.inputs.some(
+            (input) =>
+              resistance(
+                { deviceId: device.id, terminalId: input.signal },
+                { deviceId: device.id, terminalId: input.ground },
+              ) < 10,
+          ),
+      );
+  }
   return {
+    actuatorsOpen,
     powered,
     voltages,
     sourceCurrents: calculated.sourceCurrents,

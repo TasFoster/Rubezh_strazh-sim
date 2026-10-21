@@ -1,4 +1,10 @@
-import { createDoorProject, devices, getDevice } from "@strazh-sim/content";
+import {
+  createDoorProject,
+  createScenarioProject,
+  createTwoControllersProject,
+  devices,
+  getDevice,
+} from "@strazh-sim/content";
 import {
   backgroundFor,
   ControllerConfigSchema,
@@ -14,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import { CablePanel } from "./CablePanel";
 import { ControllerWindow } from "./ControllerWindow";
 import { DeviceSettings } from "./DeviceSettings";
+import { LessonPanel } from "./LessonPanel";
 import { PlanObjectPanel, type PlanSelection } from "./PlanObjectPanel";
 import { PlanPanel } from "./PlanPanel";
 import { SimulationPanel } from "./SimulationPanel";
@@ -27,6 +34,7 @@ export function App() {
   const { project, change, replace, undo, redo } = editor;
   const simulation = useSimulation(project);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [showLesson, setShowLesson] = useState(false);
   const [openControllers, setOpenControllers] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>();
   const [activeFloor, setActiveFloor] = useState("floor_1");
@@ -381,6 +389,9 @@ export function App() {
         >
           + Этаж
         </button>
+        <button type="button" onClick={() => setShowLesson(!showLesson)}>
+          Задания
+        </button>
         <span className="toolbar-spacer" />
         <span>{project.devices.length} устройств</span>
         <button
@@ -464,6 +475,19 @@ export function App() {
             }}
           >
             Готовый пример
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              simulation.stop();
+              replace(createTwoControllersProject());
+              setSelected(undefined);
+              setSelectedCable(undefined);
+              setSelectedPlan(undefined);
+              setOpenControllers([]);
+            }}
+          >
+            Два контроллера
           </button>
           <div className="palette-footer">
             Свободный монтаж
@@ -692,6 +716,23 @@ export function App() {
       </div>
       {showSimulation && (
         <SimulationPanel project={project} simulation={simulation} onClose={() => setShowSimulation(false)} />
+      )}
+      {showLesson && (
+        <LessonPanel
+          project={project}
+          simulation={simulation}
+          onClose={() => setShowLesson(false)}
+          onStart={(id) => {
+            simulation.stop();
+            replace(createScenarioProject(id));
+            setSelected(undefined);
+            setSelectedCable(undefined);
+            setSelectedPlan(undefined);
+            setPending(undefined);
+            setPlanTool("select");
+            setOpenControllers([]);
+          }}
+        />
       )}
       {openControllers.map((id, index) => {
         const controller = project.devices.find((device) => device.id === id);

@@ -19,6 +19,7 @@ export const AccessPointSchema = z.object({
   name: z.string().min(1),
   moduleId: id,
   readerId: id,
+  exitReaderId: id.optional(),
   lockId: id,
   buttonId: id,
   contactId: id,
@@ -124,6 +125,7 @@ const BackgroundSchema = z.object({
 });
 export const ProjectSchema = z
   .object({
+    scenarioId: id.optional(),
     version: z.literal(1),
     id,
     name: z.string().min(1).max(200),
@@ -224,7 +226,10 @@ export function parseProject(raw: unknown, catalog: readonly DeviceSpec[]): Proj
       for (const point of config.points) {
         checkKind(point.moduleId, "access_module");
         checkKind(point.readerId, "reader");
-        checkKind(point.lockId, "lock");
+        if (point.exitReaderId) checkKind(point.exitReaderId, "reader");
+        const actuator = instances.get(point.lockId);
+        if (!actuator || !["lock", "turnstile"].includes(models.get(actuator.modelId)?.kind ?? ""))
+          errors.push(`Неверное исполнительное устройство: ${point.lockId}`);
         checkKind(point.buttonId, "exit_button");
         checkKind(point.contactId, "door_contact");
         if (!config.modules.includes(point.moduleId)) errors.push(`Модуль точки ${point.id} не добавлен в контроллер`);
@@ -269,7 +274,10 @@ export function removeDevice(project: Project, id: string): Project {
     if (device.controller) {
       device.controller.modules = device.controller.modules.filter((moduleId) => moduleId !== id);
       device.controller.points = device.controller.points.filter(
-        (point) => ![point.moduleId, point.readerId, point.lockId, point.buttonId, point.contactId].includes(id),
+        (point) =>
+          ![point.moduleId, point.readerId, point.exitReaderId, point.lockId, point.buttonId, point.contactId].includes(
+            id,
+          ),
       );
       const pointIds = new Set(device.controller.points.map((point) => point.id));
       for (const card of device.controller.cards)
