@@ -1,0 +1,13 @@
+{
+  "name": "@strazh-sim/content",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Каталог устройств и сценарии симулятора в виде данных.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@strazh-sim/core": "*"
+  }
+}

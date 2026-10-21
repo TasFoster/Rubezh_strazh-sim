@@ -1,0 +1,114 @@
+{
+  "id": "str_1ap",
+  "name": "Модуль доступа STR-1AP",
+  "kind": "access_module",
+  "source": {
+    "document": "Паспорт ПАСН.425728.008 ПС (приложение А — схема подключения)",
+    "edition": "ред. 15"
+  },
+  "supply": { "minVoltage": 9, "maxVoltage": 28, "maxCurrentA": 0.15 },
+  "dipAddress": { "min": 1, "max": 31 },
+  "blocks": [
+    { "id": "power", "label": "Питание" },
+    { "id": "reader1", "label": "READER 1" },
+    { "id": "reader2", "label": "READER 2" },
+    { "id": "inputs", "label": "Датчики точки прохода" },
+    { "id": "sens", "label": "SENS1 / SENS2" },
+    { "id": "relay_k1", "label": "Реле K1" },
+    { "id": "relay_k2", "label": "Реле K2" },
+    { "id": "rs485_1", "label": "RS-485-1 (OSDP)" },
+    { "id": "rs485_2", "label": "RS-485-2 (OSDP, резерв)" }
+  ],
+  "terminals": [
+    { "id": "power_u", "label": "+U", "block": "power", "kind": "power_in" },
+    { "id": "power_gnd", "label": "GND", "block": "power", "kind": "ground" },
+
+    { "id": "r1_beep", "label": "BEEP", "block": "reader1", "kind": "indicator_out" },
+    { "id": "r1_green", "label": "GREEN", "block": "reader1", "kind": "indicator_out" },
+    { "id": "r1_red", "label": "RED", "block": "reader1", "kind": "indicator_out" },
+    { "id": "r1_d1", "label": "D1/T", "block": "reader1", "kind": "wiegand_d1" },
+    { "id": "r1_d0", "label": "D0", "block": "reader1", "kind": "wiegand_d0" },
+    { "id": "r1_gnd", "label": "GND", "block": "reader1", "kind": "ground" },
+    { "id": "r1_u", "label": "U+", "block": "reader1", "kind": "power_out" },
+
+    { "id": "r2_beep", "label": "BEEP", "block": "reader2", "kind": "indicator_out" },
+    { "id": "r2_green", "label": "GREEN", "block": "reader2", "kind": "indicator_out" },
+    { "id": "r2_red", "label": "RED", "block": "reader2", "kind": "indicator_out" },
+    { "id": "r2_d1", "label": "D1/T", "block": "reader2", "kind": "wiegand_d1" },
+    { "id": "r2_d0", "label": "D0", "block": "reader2", "kind": "wiegand_d0" },
+    { "id": "r2_gnd", "label": "GND", "block": "reader2", "kind": "ground" },
+    { "id": "r2_u", "label": "U+", "block": "reader2", "kind": "power_out" },
+
+    { "id": "in_door1", "label": "DOOR1", "block": "inputs", "kind": "supervised_input" },
+    { "id": "in_exit1", "label": "EXIT1", "block": "inputs", "kind": "supervised_input" },
+    { "id": "in_gnd1", "label": "GND", "block": "inputs", "kind": "ground" },
+    { "id": "in_door2", "label": "DOOR2", "block": "inputs", "kind": "supervised_input" },
+    { "id": "in_exit2", "label": "EXIT2", "block": "inputs", "kind": "supervised_input" },
+    { "id": "in_gnd2", "label": "GND", "block": "inputs", "kind": "ground" },
+
+    { "id": "sens1_neg", "label": "SENS1 −", "block": "sens", "kind": "ground" },
+    { "id": "sens1_pos", "label": "SENS1 +", "block": "sens", "kind": "supervised_input" },
+    { "id": "sens2_neg", "label": "SENS2 −", "block": "sens", "kind": "ground" },
+    { "id": "sens2_pos", "label": "SENS2 +", "block": "sens", "kind": "supervised_input" },
+
+    {
+      "id": "k1_nc",
+      "label": "K1 NC",
+      "block": "relay_k1",
+      "kind": "relay_nc",
+      "note": "На схеме паспорта контакты реле не подписаны; порядок NC–COM–NO определён по условному обозначению реле."
+    },
+    { "id": "k1_com", "label": "K1 COM", "block": "relay_k1", "kind": "relay_com" },
+    { "id": "k1_no", "label": "K1 NO", "block": "relay_k1", "kind": "relay_no" },
+    {
+      "id": "k1_bridge_a",
+      "label": "K1 доп. 1",
+      "block": "relay_k1",
+      "kind": "bridge",
+      "note": "Дополнительная колодка: два соединённых между собой контакта для включения реле в разрыв обоих проводов питания замка."
+    },
+    { "id": "k1_bridge_b", "label": "K1 доп. 2", "block": "relay_k1", "kind": "bridge" },
+
+    { "id": "k2_nc", "label": "K2 NC", "block": "relay_k2", "kind": "relay_nc" },
+    { "id": "k2_com", "label": "K2 COM", "block": "relay_k2", "kind": "relay_com" },
+    { "id": "k2_no", "label": "K2 NO", "block": "relay_k2", "kind": "relay_no" },
+    { "id": "k2_bridge_a", "label": "K2 доп. 1", "block": "relay_k2", "kind": "bridge" },
+    { "id": "k2_bridge_b", "label": "K2 доп. 2", "block": "relay_k2", "kind": "bridge" },
+
+    { "id": "rs1_pos", "label": "+D", "block": "rs485_1", "kind": "rs485_pos" },
+    { "id": "rs1_gnd", "label": "GND", "block": "rs485_1", "kind": "ground" },
+    { "id": "rs1_neg", "label": "−D", "block": "rs485_1", "kind": "rs485_neg" },
+
+    { "id": "rs2_pos", "label": "+D", "block": "rs485_2", "kind": "rs485_pos" },
+    { "id": "rs2_gnd", "label": "GND", "block": "rs485_2", "kind": "ground" },
+    { "id": "rs2_neg", "label": "−D", "block": "rs485_2", "kind": "rs485_neg" }
+  ],
+  "jumpers": [
+    {
+      "id": "term_rs1",
+      "label": "J1, J2",
+      "purpose": "Терминатор линии RS-485-1; ставится на последнем устройстве длинной линии"
+    },
+    {
+      "id": "term_rs2",
+      "label": "J3, J4",
+      "purpose": "Терминатор линии RS-485-2; ставится на последнем устройстве длинной линии"
+    },
+    {
+      "id": "act_led",
+      "label": "ACT-LED",
+      "purpose": "Инверсия сигнала световой индикации считывателей"
+    },
+    {
+      "id": "act_beep",
+      "label": "ACT-BEEP",
+      "purpose": "Инверсия сигнала звуковой индикации считывателей"
+    }
+  ],
+  "leds": [
+    { "id": "power", "label": "POWER" },
+    { "id": "error", "label": "ERROR" },
+    { "id": "rs485_1", "label": "RS-485-1" },
+    { "id": "rs485_2", "label": "RS-485-2" }
+  ]
+}

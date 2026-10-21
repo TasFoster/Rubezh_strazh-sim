@@ -1,0 +1,13 @@
+{
+  "name": "@strazh-sim/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ядро симуляции: модель устройств, клемм и шин. Без зависимостей от UI и браузера.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

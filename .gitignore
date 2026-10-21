@@ -1,0 +1,27 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# --- OS ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Editors / IDE ---
+.vscode/
+.idea/
+*.swp
+
+# --- Секреты / окружение ---
+.env
+.env.*
+
+# --- Временные файлы ---
+*.log
+*.tmp
+
+# --- Артефакты Playwright ---
+.playwright-mcp/
+playwright-report/
+test-results/

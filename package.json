@@ -1,0 +1,30 @@
+{
+  "name": "rubezh-strazh-sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Симулятор монтажа и пусконаладки СКУД Rubezh STRAZH",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @strazh-sim/web",
+    "build": "npm run build -w @strazh-sim/web",
+    "preview": "npm run preview -w @strazh-sim/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.packages.json && tsc -p apps/web/tsconfig.json",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}
