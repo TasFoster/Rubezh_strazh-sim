@@ -95,6 +95,7 @@ export const CableSchema = z.object({
   name: z.string().min(1),
   floorId: id.default("floor_1"),
   route: z.array(PositionSchema.extend({ id })).default([]),
+  routing: z.enum(["auto", "manual"]).optional(),
   lengthM: finite.min(0).max(10000).default(1),
   sectionMm2: finite.positive().max(100).default(0.5),
   cores: z
