@@ -63,6 +63,7 @@ export const DeviceSpecSchema = z
     terminals: z.array(TerminalSchema).min(1),
     electrical: z
       .object({
+        readerCurrentLimitA: z.number().positive().optional(),
         power: z.object({ positive: idSchema, negative: idSchema, currentA: z.number().nonnegative() }).optional(),
         links: z.array(z.tuple([idSchema, idSchema])).default([]),
         buses: z

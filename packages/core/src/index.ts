@@ -1,4 +1,5 @@
 export { DIP_WEIGHTS, dipAddress, dipForAddress, isValidOsdpAddress } from "./address";
+export { type CircuitControls, type CircuitResult, type Diagnostic, solveCircuit, terminalKey } from "./circuit";
 export {
   type DeviceKind,
   type DeviceSpec,
@@ -6,6 +7,7 @@ export {
   type Terminal,
   type TerminalKind,
 } from "./device";
+export { classifyInput, type InputState } from "./inputs";
 export { type LinkQuality, osdpLinkQuality } from "./osdp";
 export {
   type AccessPoint,

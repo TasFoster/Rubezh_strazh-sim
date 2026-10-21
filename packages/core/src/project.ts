@@ -1,7 +1,11 @@
 import { z } from "zod";
 import type { DeviceSpec } from "./device";
 
-const id = z.string().min(1).max(120);
+const id = z
+  .string()
+  .min(1)
+  .max(120)
+  .regex(/^[a-zA-Z0-9_-]+$/);
 const finite = z.number().finite();
 export const PositionSchema = z.object({ x: finite, y: finite });
 export type Position = z.infer<typeof PositionSchema>;

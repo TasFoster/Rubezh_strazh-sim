@@ -431,7 +431,18 @@
         "id": "exit2",
         "signal": "in_exit2",
         "ground": "in_gnd2"
+      },
+      {
+        "id": "sens1",
+        "signal": "sens1_pos",
+        "ground": "sens1_neg"
+      },
+      {
+        "id": "sens2",
+        "signal": "sens2_pos",
+        "ground": "sens2_neg"
       }
-    ]
+    ],
+    "readerCurrentLimitA": 0.32
   }
 }

@@ -24,3 +24,4 @@ export function getDevice(id: string): DeviceSpec {
   }
   return device;
 }
+export { createDoorProject } from "./example";
