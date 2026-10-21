@@ -45,3 +45,14 @@ describe("DeviceSpecSchema", () => {
     expect(result.success).toBe(false);
   });
 });
+
+for (const key of ["blocks", "jumpers", "leds"] as const) {
+  it(`отклоняет повторные ID в ${key}`, () => {
+    const entry = { id: "a", label: "A", purpose: "test" };
+    expect(DeviceSpecSchema.safeParse({ ...valid, [key]: [entry, entry] }).success).toBe(false);
+  });
+}
+
+it("отклоняет перевёрнутый диапазон DIP", () => {
+  expect(DeviceSpecSchema.safeParse({ ...valid, dipAddress: { min: 31, max: 1 } }).success).toBe(false);
+});

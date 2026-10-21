@@ -47,3 +47,9 @@ describe("STR-1AP", () => {
     expect(module.dipAddress).toEqual({ min: 1, max: 31 });
   });
 });
+
+it("каталог глубоко заморожен", () => {
+  expect(Object.isFrozen(devices)).toBe(true);
+  expect(Object.isFrozen(getDevice("str_1ap"))).toBe(true);
+  expect(Object.isFrozen(getDevice("str_1ap").terminals[0])).toBe(true);
+});

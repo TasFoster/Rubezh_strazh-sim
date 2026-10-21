@@ -7,7 +7,7 @@ const device = getDevice("str_1ap");
 export function App() {
   const [switches, setSwitches] = useState<boolean[]>(DIP_WEIGHTS.map(() => false));
   const address = dipAddress(switches);
-  const valid = isValidOsdpAddress(address);
+  const valid = isValidOsdpAddress(address, device.dipAddress);
 
   const toggle = (index: number) => {
     setSwitches((current) => current.map((on, i) => (i === index ? !on : on)));

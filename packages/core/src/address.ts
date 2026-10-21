@@ -4,8 +4,8 @@
  */
 export const DIP_WEIGHTS = [1, 2, 4, 8, 16] as const;
 
-const MIN_ADDRESS = 1;
-const MAX_ADDRESS = 31;
+const DEFAULT_RANGE = { min: 1, max: 31 };
+export type AddressRange = Readonly<{ min: number; max: number }>;
 
 /** `switches[i]` — положение переключателя с номером `i + 1` (true = ON). */
 export function dipAddress(switches: readonly boolean[]): number {
@@ -16,14 +16,16 @@ export function dipAddress(switches: readonly boolean[]): number {
 }
 
 /** Адрес 0 использовать нельзя (паспорт STR-1AP, п. 5.2, поз. 9). */
-export function isValidOsdpAddress(address: number): boolean {
-  return Number.isInteger(address) && address >= MIN_ADDRESS && address <= MAX_ADDRESS;
+export function isValidOsdpAddress(address: number, range: AddressRange = DEFAULT_RANGE): boolean {
+  return Number.isInteger(address) && address >= range.min && address <= range.max;
 }
 
 /** Положения переключателей 1–5 для заданного адреса. */
 export function dipForAddress(address: number): boolean[] {
   if (!isValidOsdpAddress(address)) {
-    throw new RangeError(`Адрес OSDP должен быть целым от ${MIN_ADDRESS} до ${MAX_ADDRESS}, получено ${address}`);
+    throw new RangeError(
+      `Адрес OSDP должен быть целым от ${DEFAULT_RANGE.min} до ${DEFAULT_RANGE.max}, получено ${address}`,
+    );
   }
   return DIP_WEIGHTS.map((weight) => (address & weight) !== 0);
 }

@@ -28,6 +28,8 @@ const TerminalKindSchema = z.enum([
 ]);
 export type TerminalKind = z.infer<typeof TerminalKindSchema>;
 
+export type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
+
 const idSchema = z.string().regex(/^[a-z0-9_]+$/, "идентификатор: строчные латинские буквы, цифры и _");
 
 const TerminalSchema = z.object({
@@ -78,6 +80,18 @@ export const DeviceSpecSchema = z
     if (device.supply.minVoltage > device.supply.maxVoltage) {
       ctx.addIssue({ code: "custom", path: ["supply"], message: "minVoltage больше maxVoltage" });
     }
+    if (device.dipAddress && device.dipAddress.min > device.dipAddress.max) {
+      ctx.addIssue({ code: "custom", path: ["dipAddress"], message: "min больше max" });
+    }
+    for (const key of ["blocks", "jumpers", "leds"] as const) {
+      const ids = new Set<string>();
+      device[key].forEach((entry, index) => {
+        if (ids.has(entry.id)) {
+          ctx.addIssue({ code: "custom", path: [key, index, "id"], message: `Повторный ID «${entry.id}»` });
+        }
+        ids.add(entry.id);
+      });
+    }
     const blockIds = new Set(device.blocks.map((block) => block.id));
     const seen = new Set<string>();
     device.terminals.forEach((terminal, index) => {
@@ -98,4 +112,4 @@ export const DeviceSpecSchema = z
       }
     });
   });
-export type DeviceSpec = z.infer<typeof DeviceSpecSchema>;
+export type DeviceSpec = DeepReadonly<z.infer<typeof DeviceSpecSchema>>;
